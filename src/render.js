@@ -312,26 +312,51 @@
     [-1, 1].forEach(function (sd) {
       glow(P(sd * 42, -29, 0), 15, L.light, 0.28, 1.7);    // brow ridge
       glow(P(sd * 31, -6, -2), 27, L.shade, 0.5, 1.3);     // orbit
-      glow(P(sd * 18.5, -5, 2), 11, L.deep, 0.3, 0.85);    // the hollow beside the root of the nose
-      glow(P(sd * 12, 13, 8), 30, L.shade, 0.3, 0.3);      // flank of the nose
+      glow(P(sd * 18, -5, 2), 10, L.deep, 0.15, 0.85);     // the hollow beside the root of the nose
       glow(P(sd * 38, 21, -5), 15, L.light, 0.34, 1.7);    // top of the cheek
       glow(P(sd * 48, 37, -13), 31, L.blush, 0.36, 1.12);  // cheek
       glow(P(sd * 66, 20, -40), 22, L.warm, 0.2, 0.7);     // temple, cheekbone edge
     });
-    glow(P(0, 12, 16), 36, L.light, 0.55, 0.15);           // dorsum of the nose
-    glow(P(0, 44, 24), 10, L.light, 0.55, 1);              // tip
-    glow(P(0, 43, 22), 15, L.blush, 0.22, 1.2);
-    glow(P(0, 57, 14), 10, L.deep, 0.42, 1.9);             // shadow under the tip
+    // ---- nose: a lit ridge between two shaded side walls, a rounded tip, wings and nostrils ----
+    function wash(points, widths, color, alpha) {      // a soft-edged brush stroke: the same line laid down at several widths
+      ctx.strokeStyle = rgba(color, alpha);
+      widths.forEach(function (w) {
+        ctx.lineWidth = w;
+        ctx.beginPath(); M(points[0]); C(points[1], points[2], points[3]); ctx.stroke();
+      });
+    }
     [-1, 1].forEach(function (sd) {
-      glow(P(sd * 13.5, 49, 9), 8, L.shade, 0.4, 0.75);    // ala
-      var np = P(sd * 7.5, 53.6, 15);
-      ctx.save(); ctx.translate(np[0], np[1]); ctx.rotate(sd * 0.32); ctx.scale(1.75, 1);
-      var ng = ctx.createRadialGradient(0, 0, 0, 0, 0, 2.3);
-      ng.addColorStop(0, rgba(L.lash, 0.78)); ng.addColorStop(0.6, rgba(L.deep, 0.6)); ng.addColorStop(1, rgba(L.deep, 0));
-      ctx.fillStyle = ng; ctx.beginPath(); ctx.arc(0, 0, 2.3, 0, TAU); ctx.fill(); ctx.restore();
-      ctx.strokeStyle = rgba(L.deep, 0.32); ctx.lineWidth = 0.35;
-      ctx.beginPath(); M(P(sd * 13.8, 46.5, 9)); Q(P(sd * 16, 51, 8), P(sd * 12.6, 54.8, 9)); ctx.stroke();
+      // side wall: darkest where it meets the ridge, fading out onto the cheek
+      wash([P(sd * 10.5, -6, 3), P(sd * 7.4, 7, 9), P(sd * 8.2, 25, 13), P(sd * 12.5, 40, 10)], [15, 11, 7.5, 5, 3], L.shade, 0.052);
     });
+    wash([P(0, 1, 9), P(0, 12, 14), P(0, 24, 18), P(0, 36, 22)], [5.4, 3.3, 1.6], L.light, 0.115);   // ridge
+    glow(P(0, 43, 23), 15, L.blush, 0.2, 1.15);
+    glow(P(0, 42.5, 24), 9.5, L.light, 0.5, 1.08);         // tip
+    glow(P(0, 41, 25), 3.8, L.light, 0.5, 1.25);
+    ctx.fillStyle = rgba(L.shade, 0.27);                   // the under-plane of the tip
+    ctx.beginPath();
+    M(P(-9.8, 47.6, 17)); Q(P(0, 56, 21), P(9.8, 47.6, 17)); Q(P(0, 51.2, 24), P(-9.8, 47.6, 17));
+    ctx.fill();
+    [-1, 1].forEach(function (sd) {
+      // wing: a rounded form with a crease where it meets the cheek
+      glow(P(sd * 13.4, 48.6, 10), 5.6, L.light, 0.26, 1);
+      ctx.beginPath();
+      M(P(sd * 11.6, 42, 11)); Q(P(sd * 18.6, 43.4, 6), P(sd * 17.3, 50.4, 5)); Q(P(sd * 16.3, 54.8, 6), P(sd * 11.8, 55.1, 9));
+      ctx.strokeStyle = rgba(L.deep, 0.11); ctx.lineWidth = 2.2; ctx.stroke();
+      ctx.strokeStyle = rgba(L.deep, 0.5); ctx.lineWidth = 0.34; ctx.stroke();
+      // nostril
+      var np = P(sd * 7.3, 52.9, 15);
+      ctx.save(); ctx.translate(np[0], np[1]); ctx.rotate(sd * 0.36);
+      ctx.fillStyle = rgba(L.deep, 0.32); ctx.beginPath(); ctx.ellipse(0, 0, 4.5, 2.5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = rgba(L.lash, 0.88); ctx.beginPath(); ctx.ellipse(0, 0.15, 3.2, 1.5, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    });
+    // the base of the nose, and the shadow it throws on the lip
+    ctx.beginPath();
+    M(P(-11.8, 55.1, 9)); Q(P(-7.6, 57.1, 13), P(-3.3, 55.3, 17)); Q(P(0, 57.4, 19), P(3.3, 55.3, 17)); Q(P(7.6, 57.1, 13), P(11.8, 55.1, 9));
+    ctx.strokeStyle = rgba(L.deep, 0.13); ctx.lineWidth = 1.9; ctx.stroke();
+    ctx.strokeStyle = rgba(L.deep, 0.5); ctx.lineWidth = 0.32; ctx.stroke();
+    glow(P(0, 60, 13), 9, L.deep, 0.24, 1.8);
     // mouth
     glow(P(0, 67, 14), 9, L.shade, 0.22, 0.7);
     ctx.fillStyle = L.lip;
@@ -436,7 +461,7 @@
     // the thin, warmer skin around the eye
     var crease = clamp(-(7.6 + 0.42 * (U - 4.2)), -10.6, -3.4);
     spot(-n * 1, crease - 2.2, 12, L.warm, 0.36, 1.7);          // sulcus under the brow
-    spot(n * 9.5, crease + 0.5, 6.5, L.deep, 0.3, 1.25);        // deepest toward the nose
+    spot(n * 9.5, crease + 0.5, 6.5, L.deep, 0.18, 1.25);       // deepest toward the nose
     spot(-n * 12, -2, 8, L.warm, 0.22, 1.1);                    // outer corner
     spot(-n * 1.5, Lo + 3.2, 9, L.warm, 0.22, 2);               // under the lower lid
     spot(n * 8.5, Lo + 4.6, 5.5, L.deep, 0.2, 1.7, n * 0.35);   // tear trough

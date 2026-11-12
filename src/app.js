@@ -56,8 +56,9 @@
   face.eyeLine = 0.56;   // leaves room for the buttons along the top of the stage
   face.resize();
   var diplo = new V.DiploView($('#diplo'));
-  var hero = { face: new CG.Face($('#heroCanvas')), sim: new E.Sim(C.byId.normal.build('R')), tx: 0, ty: 0, moved: -1e9 };
+  var hero = { face: new CG.Face($('#heroCanvas')), sim: new E.Sim(C.byId.normal.build('R')), tx: 0, ty: 0 };
   hero.face.setLook(CG.looks[4]);
+  hero.face.eyeLine = 0.35;   // show the face down to the base of the nose
   var reduceMotion = false;
   try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* default */ }
 
@@ -77,18 +78,26 @@
       ? s.cases + (s.cases === 1 ? ' case, ' : ' cases, ') + Math.round(100 * s.right / s.cases) + '% correct, streak ' + s.streak
       : 'No cases yet';
   }
-  $('#home').addEventListener('pointermove', function (ev) {
+  // On the home screen the eyes follow a finger dragged across the face (or the mouse),
+  // and rest straight ahead otherwise.
+  var heroBox = $('.home-face'), heroHeld = false;
+  function heroAim(ev) {
     var r = hero.face.canvas.getBoundingClientRect();
     var a = hero.face.screenToAngle(ev.clientX - r.left, ev.clientY - r.top);
-    hero.tx = a.tx; hero.ty = a.ty; hero.moved = performance.now();
+    hero.tx = a.tx; hero.ty = a.ty;
+  }
+  function heroRest() { heroHeld = false; hero.tx = 0; hero.ty = 0; }
+  heroBox.addEventListener('pointerdown', function (ev) {
+    heroHeld = true;
+    try { heroBox.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    heroAim(ev);
   });
-  function heroFrame(dt, now) {
-    var tx = hero.tx, ty = hero.ty;
-    if (now - hero.moved > 2500) {
-      if (reduceMotion) { tx = 0; ty = 0; }
-      else { var t = now / 1000; tx = 24 * Math.sin(t * 0.55); ty = 11 * Math.sin(t * 0.83 + 1); }
-    }
-    var f = hero.sim.step(dt, { tx: tx, ty: ty, dist: 600, yaw: 0, pitch: 0, roll: 0, cover: null, lidsLifted: false });
+  heroBox.addEventListener('pointermove', function (ev) { if (heroHeld || ev.pointerType === 'mouse') heroAim(ev); });
+  heroBox.addEventListener('pointerup', heroRest);
+  heroBox.addEventListener('pointercancel', heroRest);
+  heroBox.addEventListener('pointerleave', function (ev) { if (ev.pointerType === 'mouse') heroRest(); });
+  function heroFrame(dt) {
+    var f = hero.sim.step(dt, { tx: hero.tx, ty: hero.ty, dist: 600, yaw: 0, pitch: 0, roll: 0, cover: null, lidsLifted: false });
     hero.face.draw(f, { bg: stageBg, head: ZERO, light: { x: f.sol.ox, y: f.sol.oy } });
   }
 
@@ -181,7 +190,7 @@
       ? '<span class="chip">' + esc('Habitual posture: ' + postureText(cfg.posture)) + '</span>' : '';
     $('#exam').classList.toggle('sub-open', !$('#subHead').hidden || !$('#subNear').hidden);
     pad.classList.toggle('is-head', hs.doll);
-    stage.style.cursor = hs.doll ? 'grab' : 'default';
+    stage.style.cursor = hs.doll ? 'grab' : 'crosshair';
     padKey = '';
   }
 
@@ -276,13 +285,7 @@
   function padEnd(ev) {
     if (padDrag !== ev.pointerId) return;
     padDrag = null;
-    if (state.headSel.doll) return;
-    var inp = state.input, best = null, bd = 5.5;
-    YOKES.forEach(function (y) {
-      var d = Math.abs(y.tx - inp.tx) + Math.abs(y.ty - inp.ty);
-      if (d < bd) { bd = d; best = y; }
-    });
-    if (best) { inp.tx = best.tx; inp.ty = best.ty; }
+    if (!state.headSel.doll) snapGaze();
   }
   pad.addEventListener('pointerup', padEnd);
   pad.addEventListener('pointercancel', padEnd);
@@ -314,21 +317,41 @@
     if (cap !== padCap) { padCap = cap; $('#padCap').innerHTML = cap; }
   }
 
-  // Dragging the face itself turns the head, in doll's head mode only.
+  // Dragging on the face works as well: it moves the fixation light, or turns the head in doll's head mode.
+  function snapGaze() {
+    var inp = state.input, best = null, bd = 5.5;
+    YOKES.forEach(function (y) {
+      var d = Math.abs(y.tx - inp.tx) + Math.abs(y.ty - inp.ty);
+      if (d < bd) { bd = d; best = y; }
+    });
+    if (best) { inp.tx = best.tx; inp.ty = best.ty; }
+  }
   var drag = null;
+  function stageAim(ev) {
+    var r = stage.getBoundingClientRect();
+    state.input.tx = clamp((face.cx - (ev.clientX - r.left)) / (r.width / 2) * 45, -45, 45);
+    state.input.ty = clamp((face.cy - (ev.clientY - r.top)) / (r.height / 2) * 38, -35, 35);
+  }
   stage.addEventListener('pointerdown', function (ev) {
-    if (ev.button > 0 || !state.sim || !state.headSel.doll) return;
+    if (ev.button > 0 || !state.sim) return;
     try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
     drag = { id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, yaw0: state.headSel.dollYaw, pitch0: state.headSel.dollPitch };
+    if (!state.headSel.doll) stageAim(ev);
     ev.preventDefault();
   });
   stage.addEventListener('pointermove', function (ev) {
     if (!drag || ev.pointerId !== drag.id) return;
     var hs = state.headSel;
-    hs.dollYaw = clamp(drag.yaw0 - (ev.clientX - drag.x0) * 0.3, -32, 32);
-    hs.dollPitch = clamp(drag.pitch0 - (ev.clientY - drag.y0) * 0.3, -25, 25);
+    if (hs.doll) {
+      hs.dollYaw = clamp(drag.yaw0 - (ev.clientX - drag.x0) * 0.3, -32, 32);
+      hs.dollPitch = clamp(drag.pitch0 - (ev.clientY - drag.y0) * 0.3, -25, 25);
+    } else stageAim(ev);
   });
-  function endDrag(ev) { if (drag && ev.pointerId === drag.id) drag = null; }
+  function endDrag(ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    drag = null;
+    if (!state.headSel.doll) snapGaze();
+  }
   stage.addEventListener('pointerup', endDrag);
   stage.addEventListener('pointercancel', endDrag);
   document.addEventListener('keydown', function (ev) {
@@ -611,7 +634,7 @@
     var dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
     last = now;
     if (document.hidden) return;
-    if (state.screen === 'home') { heroFrame(dt, now); return; }
+    if (state.screen === 'home') { heroFrame(dt); return; }
     if (state.screen !== 'exam' || !state.sim) return;
 
     var hs = state.headSel, inp = state.input, p = state.cfg.posture;
