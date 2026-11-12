@@ -228,7 +228,8 @@
     return { tx: clamp((this.cx - x) / (this.W / 2) * 36, -40, 40), ty: clamp((this.cy - y) / (this.H / 2) * 26, -30, 30) };
   };
 
-  /* frame: output of Sim.step. view: { bg, head:{yaw,pitch,roll}, light:{x,y}, cover:{R,L} 0..1, seeThrough } */
+  /* frame: output of Sim.step. view: { bg, head:{yaw,pitch,roll}, light:{x,y} or {R,L}, cover:{R,L} 0..1,
+     seeThrough, prism:{R,L} each {power, base, label}, glasses } */
   Face.prototype.draw = function (frame, view) {
     var ctx = this.ctx, L = this.look, self = this;
     var head = view.head || { yaw: 0, pitch: 0, roll: 0 };
@@ -377,9 +378,10 @@
     ctx.restore();
 
     // eyes
-    var light = view.light || { x: 0, y: 0 };
-    this.drawEye(ctx, 'R', frame.eyes.R, light, P, head);
-    this.drawEye(ctx, 'L', frame.eyes.L, light, P, head);
+    var light = view.light || { x: 0, y: 0 };      // one direction, or one per eye when a prism bends it
+    this.drawEye(ctx, 'R', frame.eyes.R, light.R || light, P, head);
+    this.drawEye(ctx, 'L', frame.eyes.L, light.L || light, P, head);
+    if (view.glasses) this.drawGlasses(ctx, P, head);
 
     // fringe and side hair
     ctx.fillStyle = L.hair;
@@ -406,6 +408,7 @@
       self.eyeScreen[k] = { x: self.cx + s * (shx + c[0] * cr - yy * sr), y: self.cy + s * (shy + c[0] * sr + yy * cr + PIVOT_Y) };
     });
 
+    this.drawPrisms(ctx, view);
     this.drawOccluder(ctx, view);
 
     // paper grain over the whole painting
@@ -619,6 +622,86 @@
       ctx.stroke();
     }
     ctx.restore();
+  };
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // Red-green glasses for the Worth 4 dot test: red before the right eye, green before the left.
+  Face.prototype.drawGlasses = function (ctx, P, head) {
+    var ys = Math.sin(head.yaw * DEG), yc = Math.cos(head.yaw * DEG), pc = Math.cos(head.pitch * DEG);
+    var frame = 'rgba(22,24,28,0.92)';
+    ctx.strokeStyle = frame; ctx.lineWidth = 1.5;
+    [-1, 1].forEach(function (sd) {            // temples, behind the lenses
+      var a = P(sd * 55, -5, 2), b = P(sd * 80, -7, -62);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    });
+    ['R', 'L'].forEach(function (key) {
+      var n = key === 'R' ? 1 : -1, c = P(key === 'R' ? -32 : 32, 1, 6);
+      ctx.save();
+      ctx.translate(c[0], c[1]);
+      ctx.scale(yc - 0.22 * n * ys, pc);
+      roundRect(ctx, -23.5, -17, 47, 34, 10);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = key === 'R' ? 'rgba(255,74,64,0.74)' : 'rgba(46,204,116,0.72)';
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      var sheen = ctx.createLinearGradient(-20, -17, 12, 17);
+      sheen.addColorStop(0, 'rgba(255,255,255,0.26)'); sheen.addColorStop(0.45, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sheen; ctx.fill();
+      ctx.strokeStyle = frame; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
+    });
+    var a2 = P(-8.5, -5, 8), b2 = P(8.5, -5, 8), m2 = P(0, -9, 11);
+    ctx.strokeStyle = frame; ctx.lineWidth = 1.7;
+    ctx.beginPath(); ctx.moveTo(a2[0], a2[1]); ctx.quadraticCurveTo(m2[0], m2[1], b2[0], b2[1]); ctx.stroke();
+  };
+
+  // A loose prism held before an eye: clear glass that thickens toward its base.
+  Face.prototype.drawPrisms = function (ctx, view) {
+    var self = this;
+    if (!view.prism) return;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ['R', 'L'].forEach(function (key) {
+      var z = view.prism[key];
+      if (!z || !(z.power > 0)) return;
+      var c = self.eyeScreen[key], s = self.drawScale || self.scale;
+      var w = 21 * s, h = 17.5 * s, y0 = c.y + 0.5 * s;
+      ctx.save();
+      ctx.translate(c.x, y0);
+      ctx.rotate(-z.base * DEG);                 // local +x is the base direction
+      var g = ctx.createLinearGradient(-w, 0, w, 0);
+      g.addColorStop(0, 'rgba(214,236,244,0.08)'); g.addColorStop(1, 'rgba(186,222,238,0.42)');
+      roundRect(ctx, -w, -h, 2 * w, 2 * h, 2.5 * s);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.72)'; ctx.lineWidth = 1.2; ctx.stroke();
+      var bw = (2.4 + Math.min(z.power, 50) * 0.1) * s;      // the base grows with the power
+      roundRect(ctx, w - bw, -h, bw, 2 * h, 1.4 * s);
+      ctx.fillStyle = 'rgba(236,247,251,0.78)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(18,40,52,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-w + 1, -h + 3 * s); ctx.lineTo(-w + 1, h - 3 * s); ctx.stroke();
+      ctx.restore();
+      if (z.label) {
+        ctx.font = '600 ' + Math.round(clamp(3.2 * s, 10.5, 14)) + 'px "IBM Plex Mono", ui-monospace, monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        var tw = ctx.measureText(z.label).width + 14, th = clamp(5.4 * s, 17, 24);
+        var ly = Math.min(y0 + Math.max(w, h) * 0.82 + th * 0.9, self.H - th / 2 - 4);
+        var lx = clamp(c.x, tw / 2 + 4, self.W - tw / 2 - 4);
+        roundRect(ctx, lx - tw / 2, ly - th / 2, tw, th, th / 2);
+        ctx.fillStyle = 'rgba(12,22,28,0.8)'; ctx.fill();
+        ctx.fillStyle = key === 'R' ? '#FFB3AD' : '#9BE8C2';
+        ctx.fillText(z.label, lx, ly + 0.5);
+        ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      }
+    });
   };
 
   Face.prototype.drawOccluder = function (ctx, view) {

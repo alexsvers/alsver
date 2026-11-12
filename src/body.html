@@ -14,6 +14,7 @@
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12c3-5 6.500-7 10-7s7 2 10 7c-3 5-6.500 7-10 7s-7-2-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="17" height="17" rx="2"/><path d="M9.200 3.500v17M14.800 3.500v17M3.500 9.200h17M3.500 14.800h17"/></symbol>
     <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h8M18 7h2M4 17h2M12 17h8"/><circle cx="15" cy="7" r="2.6"/><circle cx="9" cy="17" r="2.6"/></symbol>
+    <symbol id="i-prism" viewBox="0 0 24 24"><path d="M12 4.500L21 19.500H3z"/><path d="M12 4.500v15" opacity=".45"/></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.500 18.500h5M10.500 21.500h3M12 3a6 6 0 0 0-3.600 10.800c.600.500 1 1.200 1.100 2.200h5c.100-1 .500-1.700 1.100-2.200A6 6 0 0 0 12 3z"/></symbol>
   </defs>
 </svg>
@@ -78,6 +79,7 @@
           <button class="fab top-tab" data-tab="info" id="topInfo" aria-label="Findings"><svg><use href="#i-bulb"/></svg></button>
           <button class="fab top-tab" data-tab="view" aria-label="Patient's view"><svg><use href="#i-eye"/></svg></button>
           <button class="fab top-tab" data-tab="hess" aria-label="Hess chart"><svg><use href="#i-grid"/></svg></button>
+          <button class="fab top-tab" data-tab="prism" aria-label="Prisms"><svg><use href="#i-prism"/></svg></button>
         </div>
         <button class="fab" id="btnSettings" aria-label="Settings"><svg><use href="#i-set"/></svg></button>
       </div>
@@ -125,12 +127,17 @@
         <button role="tab" data-tab="info" id="tabInfo" aria-selected="true">Findings</button>
         <button role="tab" data-tab="view" aria-selected="false">Patient’s view</button>
         <button role="tab" data-tab="hess" aria-selected="false">Hess chart</button>
+        <button role="tab" data-tab="prism" aria-selected="false">Prisms</button>
         <button class="iconbtn panel-close" id="panelClose" aria-label="Close panel"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="pane" id="paneInfo"></div>
       <div class="pane" id="paneView" hidden>
+        <div class="sidepick" id="viewMode" role="group" aria-label="Target">
+          <button data-vmode="light" aria-pressed="true">Fixation light</button>
+          <button data-vmode="w4d" aria-pressed="false">Worth 4 dot</button>
+        </div>
         <div id="diplo"></div>
-        <p class="d-legend"><span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image</p>
+        <p class="d-legend" id="dLegend"><span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image</p>
         <p class="d-state" id="dState"></p>
         <dl class="readout">
           <div><dt>Horizontal</dt><dd id="roH">None</dd></div>
@@ -140,6 +147,45 @@
         <p class="note">The readout is the angle between the eyes right now, for this target, head position and cover. Cover an eye to measure a latent deviation.</p>
       </div>
       <div class="pane" id="paneHess" hidden></div>
+      <div class="pane" id="panePrism" hidden>
+        <div class="sidepick" id="prismEye" role="group" aria-label="Eye behind the prism">
+          <button data-peye="R" data-side="R" aria-pressed="true">Right eye</button>
+          <button data-peye="L" data-side="L" aria-pressed="false">Left eye</button>
+        </div>
+        <div class="prism-row">
+          <svg class="dial" id="prismDial" viewBox="-62 -62 124 124" role="slider" tabindex="0" aria-label="Base direction in degrees" aria-valuemin="0" aria-valuemax="355" aria-valuenow="180">
+            <circle class="dial-ring" r="50"/>
+            <g id="dialTicks"></g>
+            <text class="dial-t" x="38" y="3.500" text-anchor="end">0°</text>
+            <text class="dial-t" x="0" y="-33" text-anchor="middle">90°</text>
+            <text class="dial-t" x="-38" y="3.500">180°</text>
+            <text class="dial-t" x="0" y="39" text-anchor="middle">270°</text>
+            <g id="dialNeedle">
+              <path class="dial-wedge" d="M-22,0 L18,-13 L18,13 Z"/>
+              <rect class="dial-base" x="16" y="-13" width="5" height="26" rx="1.500"/>
+              <circle class="dial-knob" cx="50" cy="0" r="8"/>
+            </g>
+          </svg>
+          <div class="prism-ctl">
+            <div class="power">
+              <button class="step" id="pMinus" aria-label="Weaker prism">−</button>
+              <output id="pPower" for="pRange">No prism</output>
+              <button class="step" id="pPlus" aria-label="Stronger prism">+</button>
+            </div>
+            <input type="range" id="pRange" min="0" max="17" step="1" value="0" aria-label="Prism power">
+            <div class="basebtns">
+              <button class="seg" data-base="out">Base out</button>
+              <button class="seg" data-base="in">Base in</button>
+              <button class="seg" data-base="up">Base up</button>
+              <button class="seg" data-base="down">Base down</button>
+            </div>
+          </div>
+        </div>
+        <p class="p-sum" id="pSum"></p>
+        <div class="btn-row"><button class="btn ghost small" id="pClear">Remove the prisms</button></div>
+        <p class="note"><b>Prism cover test.</b> Alternate the cover between the two eyes and watch for a refixation movement. Point the apex the way the eye deviates: base out for an esodeviation, base in for an exodeviation, base down over the higher eye. Raise the power until the movement stops; if it reverses you have gone too far. Turn the dial for an oblique prism when the deviation is both horizontal and vertical.</p>
+        <p class="note">The prism you need depends on which eye is fixing: in a palsy the sound eye fixing gives the primary deviation, the palsied eye fixing the larger secondary one.</p>
+      </div>
     </aside>
 
     <section class="sheet" id="sheet" hidden>
@@ -150,6 +196,26 @@
       </header>
       <div class="page-body wrap" id="sheetBody"></div>
     </section>
+  </section>
+
+  <section class="intro" id="intro" hidden>
+    <div class="intro-face">
+      <canvas id="introCanvas" aria-hidden="true"></canvas>
+      <p class="intro-cap" id="introCap"></p>
+    </div>
+    <div class="intro-body wrap">
+      <div class="intro-text">
+        <p class="kicker" id="introStep"></p>
+        <h2 id="introTitle"></h2>
+        <p class="lede" id="introText"></p>
+      </div>
+      <div class="intro-nav">
+        <button class="btn ghost" id="introSkip">Skip</button>
+        <span class="dots" id="introDots" aria-hidden="true"></span>
+        <button class="btn ghost" id="introBack">Back</button>
+        <button class="btn" id="introNext">Next</button>
+      </div>
+    </div>
   </section>
 
   <section class="sheet" id="settings" hidden>
@@ -187,6 +253,8 @@
       <h2>Information</h2>
     </header>
     <div class="page-body wrap prose">
+      <div class="btn-row"><button class="btn ghost small" data-go="intro">Replay the intro</button></div>
+
       <h3>Reading the screen</h3>
       <p>You face the patient, so the patient’s right eye is on your left. Throughout the app <b class="t-re">red is the right eye</b> and <b class="t-le">green is the left eye</b>, as on a Hess screen.</p>
       <p>The fixation target is a small light. Its corneal reflex is drawn in each eye, so you can read a Hirschberg test in any position: the reflex of a deviated eye sits off the centre of the pupil, about 1 mm for every 12°.</p>
@@ -198,7 +266,8 @@
         <div><dt>Head</dt><dd>Tilt the head to either shoulder for the Bielschowsky test, and keep it tilted while you cover. With Doll’s head on, the gaze pad turns the head instead while the patient fixes straight ahead. Habitual returns the patient to the head posture they walked in with.</dd></div>
         <div><dt>Distance</dt><dd>Move the target from 6 m to 33 cm, then on toward the nose to find the near point of convergence.</dd></div>
         <div><dt>Lift lids</dt><dd>Holds both upper lids up, as you would with your thumb, when ptosis hides the eye.</dd></div>
-        <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres.</dd></div>
+        <div><dt>Prisms</dt><dd>Hold a prism of any power before either eye and turn its base in any direction, then repeat the cover test until nothing moves. A prism over the fixing eye moves the other eye by the same angle, which is the Krimsky test.</dd></div>
+        <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres. Switch the target to Worth 4 dot and the patient puts on red-green glasses: four lights mean fusion, five mean diplopia, two red or three green mean one eye is suppressed. Try it at 6 m and at 33 cm.</dd></div>
         <div><dt>Hess chart</dt><dd>Plots each eye’s field while the other eye fixes. The smaller field belongs to the limited eye; the larger shows overaction of its yoke muscle.</dd></div>
       </dl>
 

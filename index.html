@@ -230,11 +230,14 @@ p { margin: 0; }
 .panel { grid-row: 3; grid-column: 1; min-height: 0; display: flex; flex-direction: column; }
 .tabs { display: flex; align-items: stretch; gap: 2px; padding: 0 var(--gr) 0 var(--gl); background: var(--surface); border-bottom: 1px solid var(--line); flex: none; }
 .tabs [role="tab"] {
-  flex: 1; border: 0; background: none; padding: 11px 4px 9px; font-size: 13.5px; font-weight: 600;
+  flex: 1 1 auto; border: 0; background: none; padding: 11px 5px 9px; font-size: 13.5px; font-weight: 600;
   color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap;
 }
 .tabs [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
-.panel-close { display: none; align-self: center; width: 34px; height: 34px; margin-left: 6px; }
+.tabs [role="tab"] { font-size: 13px; }
+.panel-close { display: none; align-self: center; width: 34px; height: 34px; margin-left: 6px; position: sticky; right: 0; }
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
 .pane { flex: 1; min-height: 0; overflow-y: auto; padding: 14px var(--gr) 28px var(--gl); display: flex; flex-direction: column; gap: 12px; }
 .pane > * { flex: none; }
 
@@ -247,6 +250,7 @@ p { margin: 0; }
 .muted { color: var(--muted); }
 .sidepick { display: inline-flex; gap: 4px; padding: 3px; border-radius: 11px; background: var(--surface); border: 1px solid var(--line); align-self: flex-start; }
 .sidepick button { border: 0; background: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; }
+.sidepick button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
 .sidepick button[aria-pressed="true"][data-side="R"] { background: var(--re-soft); color: var(--re); }
 .sidepick button[aria-pressed="true"][data-side="L"] { background: var(--le-soft); color: var(--le); }
 .history { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
@@ -281,7 +285,8 @@ p { margin: 0; }
 .d-re rect { fill: #FF5A52; }
 .d-le rect { fill: #3FDB8E; }
 .d-one rect { fill: #FFF3C4; }
-.d-img rect { filter: drop-shadow(0 0 5px currentColor); }
+.d-img rect, .d-dot { filter: drop-shadow(0 0 5px currentColor); }
+circle.d-re { fill: #FF5A52; } circle.d-le { fill: #3FDB8E; } circle.d-one { fill: #FFF3C4; }
 .d-re { color: rgba(255, 90, 82, 0.8); } .d-le { color: rgba(63, 219, 142, 0.8); } .d-one { color: rgba(255, 243, 196, 0.7); }
 .d-legend { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .key { width: 16px; height: 5px; border-radius: 3px; display: inline-block; }
@@ -292,6 +297,26 @@ p { margin: 0; }
 .readout dt { font-size: 11.5px; color: var(--muted); font-weight: 600; }
 .readout dd { margin: 2px 0 0; font: 600 14px var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .note { font-size: 12.5px; color: var(--muted); }
+/* prisms */
+.prism-row { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 14px; align-items: center; }
+.dial { width: 128px; height: 128px; touch-action: none; cursor: grab; border-radius: 50%; }
+.dial-ring { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.dial-tick { stroke: var(--muted); stroke-width: 1; opacity: 0.6; }
+.dial-t { font: 500 8px var(--font-mono); fill: var(--muted); }
+.dial-wedge { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; stroke-linejoin: round; }
+.dial-base { fill: var(--accent); }
+.dial-knob { fill: var(--accent); stroke: var(--surface); stroke-width: 2.5; }
+.prism-ctl { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.power { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 6px; }
+.power output { text-align: center; font: 600 19px var(--font-mono); font-variant-numeric: tabular-nums; }
+.step { height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); font-size: 22px; line-height: 1; font-weight: 600; }
+#pRange { width: 100%; accent-color: var(--accent); margin: 0; }
+.basebtns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.basebtns .seg { background: var(--surface); border-color: var(--line); padding: 8px 4px; }
+.basebtns .seg[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.p-sum { font-weight: 600; }
+#prismEye button small { font: 600 11px var(--font-mono); margin-left: 6px; opacity: 0.85; }
+
 /* Hess chart */
 .hess { width: 100%; height: auto; max-width: 560px; align-self: center; }
 .h-bg { fill: var(--surface); stroke: var(--line); }
@@ -343,6 +368,29 @@ p { margin: 0; }
 .tools dt { font-weight: 700; }
 .tools dd { margin: 0; color: var(--muted); }
 .t-re { color: var(--re); } .t-le { color: var(--le); }
+
+/* intro: a live demonstration above, one idea at a time below */
+.intro { position: absolute; inset: 0; z-index: 40; background: var(--bg); display: grid; grid-template-rows: minmax(170px, 42%) minmax(0, 1fr); }
+.intro-face { position: relative; overflow: hidden; background: var(--stage); min-height: 0; }
+.intro-face canvas { width: 100%; height: 100%; display: block; }
+.intro-cap {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; margin: 0 auto; width: fit-content; max-width: calc(100% - 16px);
+  font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px; text-align: center;
+  background: rgba(12, 22, 28, 0.74); color: #F2F6F7;
+}
+.intro-cap:empty { display: none; }
+.intro-body { display: flex; flex-direction: column; gap: 16px; padding-block: 22px 16px; overflow-y: auto; min-height: 0; }
+.intro-body h2 { font-size: clamp(24px, 6.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.08; margin-top: 6px; }
+.intro-body .lede { font-size: 16px; }
+.intro-nav { margin-top: auto; display: flex; align-items: center; gap: 8px; }
+.intro-nav .dots { flex: 1; display: flex; justify-content: center; gap: 6px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.dots i.on { background: var(--accent); }
+.intro-nav .btn { padding: 12px 16px; }
+@media (orientation: landscape) {
+  .intro { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 50%) minmax(0, 1fr); }
+  .intro-body { padding-left: 24px; }
+}
 
 /* settings */
 .set-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
@@ -426,6 +474,7 @@ p { margin: 0; }
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12c3-5 6.500-7 10-7s7 2 10 7c-3 5-6.500 7-10 7s-7-2-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="17" height="17" rx="2"/><path d="M9.200 3.500v17M14.800 3.500v17M3.500 9.200h17M3.500 14.800h17"/></symbol>
     <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h8M18 7h2M4 17h2M12 17h8"/><circle cx="15" cy="7" r="2.6"/><circle cx="9" cy="17" r="2.6"/></symbol>
+    <symbol id="i-prism" viewBox="0 0 24 24"><path d="M12 4.500L21 19.500H3z"/><path d="M12 4.500v15" opacity=".45"/></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.500 18.500h5M10.500 21.500h3M12 3a6 6 0 0 0-3.600 10.800c.600.500 1 1.200 1.100 2.200h5c.100-1 .500-1.700 1.100-2.200A6 6 0 0 0 12 3z"/></symbol>
   </defs>
 </svg>
@@ -490,6 +539,7 @@ p { margin: 0; }
           <button class="fab top-tab" data-tab="info" id="topInfo" aria-label="Findings"><svg><use href="#i-bulb"/></svg></button>
           <button class="fab top-tab" data-tab="view" aria-label="Patient's view"><svg><use href="#i-eye"/></svg></button>
           <button class="fab top-tab" data-tab="hess" aria-label="Hess chart"><svg><use href="#i-grid"/></svg></button>
+          <button class="fab top-tab" data-tab="prism" aria-label="Prisms"><svg><use href="#i-prism"/></svg></button>
         </div>
         <button class="fab" id="btnSettings" aria-label="Settings"><svg><use href="#i-set"/></svg></button>
       </div>
@@ -537,12 +587,17 @@ p { margin: 0; }
         <button role="tab" data-tab="info" id="tabInfo" aria-selected="true">Findings</button>
         <button role="tab" data-tab="view" aria-selected="false">Patient’s view</button>
         <button role="tab" data-tab="hess" aria-selected="false">Hess chart</button>
+        <button role="tab" data-tab="prism" aria-selected="false">Prisms</button>
         <button class="iconbtn panel-close" id="panelClose" aria-label="Close panel"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="pane" id="paneInfo"></div>
       <div class="pane" id="paneView" hidden>
+        <div class="sidepick" id="viewMode" role="group" aria-label="Target">
+          <button data-vmode="light" aria-pressed="true">Fixation light</button>
+          <button data-vmode="w4d" aria-pressed="false">Worth 4 dot</button>
+        </div>
         <div id="diplo"></div>
-        <p class="d-legend"><span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image</p>
+        <p class="d-legend" id="dLegend"><span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image</p>
         <p class="d-state" id="dState"></p>
         <dl class="readout">
           <div><dt>Horizontal</dt><dd id="roH">None</dd></div>
@@ -552,6 +607,45 @@ p { margin: 0; }
         <p class="note">The readout is the angle between the eyes right now, for this target, head position and cover. Cover an eye to measure a latent deviation.</p>
       </div>
       <div class="pane" id="paneHess" hidden></div>
+      <div class="pane" id="panePrism" hidden>
+        <div class="sidepick" id="prismEye" role="group" aria-label="Eye behind the prism">
+          <button data-peye="R" data-side="R" aria-pressed="true">Right eye</button>
+          <button data-peye="L" data-side="L" aria-pressed="false">Left eye</button>
+        </div>
+        <div class="prism-row">
+          <svg class="dial" id="prismDial" viewBox="-62 -62 124 124" role="slider" tabindex="0" aria-label="Base direction in degrees" aria-valuemin="0" aria-valuemax="355" aria-valuenow="180">
+            <circle class="dial-ring" r="50"/>
+            <g id="dialTicks"></g>
+            <text class="dial-t" x="38" y="3.500" text-anchor="end">0°</text>
+            <text class="dial-t" x="0" y="-33" text-anchor="middle">90°</text>
+            <text class="dial-t" x="-38" y="3.500">180°</text>
+            <text class="dial-t" x="0" y="39" text-anchor="middle">270°</text>
+            <g id="dialNeedle">
+              <path class="dial-wedge" d="M-22,0 L18,-13 L18,13 Z"/>
+              <rect class="dial-base" x="16" y="-13" width="5" height="26" rx="1.500"/>
+              <circle class="dial-knob" cx="50" cy="0" r="8"/>
+            </g>
+          </svg>
+          <div class="prism-ctl">
+            <div class="power">
+              <button class="step" id="pMinus" aria-label="Weaker prism">−</button>
+              <output id="pPower" for="pRange">No prism</output>
+              <button class="step" id="pPlus" aria-label="Stronger prism">+</button>
+            </div>
+            <input type="range" id="pRange" min="0" max="17" step="1" value="0" aria-label="Prism power">
+            <div class="basebtns">
+              <button class="seg" data-base="out">Base out</button>
+              <button class="seg" data-base="in">Base in</button>
+              <button class="seg" data-base="up">Base up</button>
+              <button class="seg" data-base="down">Base down</button>
+            </div>
+          </div>
+        </div>
+        <p class="p-sum" id="pSum"></p>
+        <div class="btn-row"><button class="btn ghost small" id="pClear">Remove the prisms</button></div>
+        <p class="note"><b>Prism cover test.</b> Alternate the cover between the two eyes and watch for a refixation movement. Point the apex the way the eye deviates: base out for an esodeviation, base in for an exodeviation, base down over the higher eye. Raise the power until the movement stops; if it reverses you have gone too far. Turn the dial for an oblique prism when the deviation is both horizontal and vertical.</p>
+        <p class="note">The prism you need depends on which eye is fixing: in a palsy the sound eye fixing gives the primary deviation, the palsied eye fixing the larger secondary one.</p>
+      </div>
     </aside>
 
     <section class="sheet" id="sheet" hidden>
@@ -562,6 +656,26 @@ p { margin: 0; }
       </header>
       <div class="page-body wrap" id="sheetBody"></div>
     </section>
+  </section>
+
+  <section class="intro" id="intro" hidden>
+    <div class="intro-face">
+      <canvas id="introCanvas" aria-hidden="true"></canvas>
+      <p class="intro-cap" id="introCap"></p>
+    </div>
+    <div class="intro-body wrap">
+      <div class="intro-text">
+        <p class="kicker" id="introStep"></p>
+        <h2 id="introTitle"></h2>
+        <p class="lede" id="introText"></p>
+      </div>
+      <div class="intro-nav">
+        <button class="btn ghost" id="introSkip">Skip</button>
+        <span class="dots" id="introDots" aria-hidden="true"></span>
+        <button class="btn ghost" id="introBack">Back</button>
+        <button class="btn" id="introNext">Next</button>
+      </div>
+    </div>
   </section>
 
   <section class="sheet" id="settings" hidden>
@@ -599,6 +713,8 @@ p { margin: 0; }
       <h2>Information</h2>
     </header>
     <div class="page-body wrap prose">
+      <div class="btn-row"><button class="btn ghost small" data-go="intro">Replay the intro</button></div>
+
       <h3>Reading the screen</h3>
       <p>You face the patient, so the patient’s right eye is on your left. Throughout the app <b class="t-re">red is the right eye</b> and <b class="t-le">green is the left eye</b>, as on a Hess screen.</p>
       <p>The fixation target is a small light. Its corneal reflex is drawn in each eye, so you can read a Hirschberg test in any position: the reflex of a deviated eye sits off the centre of the pupil, about 1 mm for every 12°.</p>
@@ -610,7 +726,8 @@ p { margin: 0; }
         <div><dt>Head</dt><dd>Tilt the head to either shoulder for the Bielschowsky test, and keep it tilted while you cover. With Doll’s head on, the gaze pad turns the head instead while the patient fixes straight ahead. Habitual returns the patient to the head posture they walked in with.</dd></div>
         <div><dt>Distance</dt><dd>Move the target from 6 m to 33 cm, then on toward the nose to find the near point of convergence.</dd></div>
         <div><dt>Lift lids</dt><dd>Holds both upper lids up, as you would with your thumb, when ptosis hides the eye.</dd></div>
-        <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres.</dd></div>
+        <div><dt>Prisms</dt><dd>Hold a prism of any power before either eye and turn its base in any direction, then repeat the cover test until nothing moves. A prism over the fixing eye moves the other eye by the same angle, which is the Krimsky test.</dd></div>
+        <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres. Switch the target to Worth 4 dot and the patient puts on red-green glasses: four lights mean fusion, five mean diplopia, two red or three green mean one eye is suppressed. Try it at 6 m and at 33 cm.</dd></div>
         <div><dt>Hess chart</dt><dd>Plots each eye’s field while the other eye fixes. The smaller field belongs to the limited eye; the larger shows overaction of its yoke muscle.</dd></div>
       </dl>
 
@@ -818,6 +935,13 @@ p { margin: 0; }
     var vg = clamp(V.bias + demand * V.gain, -40, V.max);
     var ctx = { vorX: st.vorX || 0, vorY: st.vorY || 0, roll: roll, fatigue: st.fatigue || 0 };
     var req = { R: { a: ox - demand / 2, e: oy }, L: { a: -ox - demand / 2, e: oy } };
+    // A prism displaces the target toward its apex for the eye behind it, so that eye has to
+    // turn by the same angle to fixate. st.prism holds that displacement per eye, in world degrees.
+    var pr = st.prism;
+    if (pr) {
+      if (pr.R) { req.R.a += pr.R.x; req.R.e += pr.R.y; }
+      if (pr.L) { req.L.a -= pr.L.x; req.L.e += pr.L.y; }
+    }
     var can = { R: sees(cfg, 'R', st), L: sees(cfg, 'L', st) };
 
     function attempt(fix) {
@@ -913,7 +1037,7 @@ p { margin: 0; }
     var st = {
       tx: input.tx, ty: input.ty, dist: input.dist, yaw: input.yaw, pitch: input.pitch, roll: input.roll,
       vorX: input.vorX, vorY: input.vorY, cover: input.cover, lidsLifted: input.lidsLifted,
-      fatigue: this.fatigue, lastFix: this.lastFix
+      prism: input.prism, fatigue: this.fatigue, lastFix: this.lastFix
     };
     var sol = solve(cfg, st);
     this.lastFix = sol.fix;
@@ -1078,9 +1202,16 @@ p { margin: 0; }
 
   function prism(deg) { return 100 * Math.tan(Math.abs(deg) * DEG); }
 
+  // Displacement produced by a prism of `power` dioptres whose base points along `base` degrees,
+  // in the examiner's view: 0° toward the patient's left, 90° up, 180° toward the patient's right.
+  function prismShift(power, base) {
+    var th = Math.atan((power || 0) / 100) / DEG;
+    return { x: Math.cos(base * DEG) * th, y: -Math.sin(base * DEG) * th };
+  }
+
   CG.engine = {
     K: K, makeEye: makeEye, makeConfig: makeConfig, eyePosition: eyePosition, solve: solve,
-    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, soften: soften, prism: prism, clamp: clamp, lerp: lerp
+    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, soften: soften, prism: prism, prismShift: prismShift, clamp: clamp, lerp: lerp
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
@@ -1880,7 +2011,8 @@ p { margin: 0; }
     return { tx: clamp((this.cx - x) / (this.W / 2) * 36, -40, 40), ty: clamp((this.cy - y) / (this.H / 2) * 26, -30, 30) };
   };
 
-  /* frame: output of Sim.step. view: { bg, head:{yaw,pitch,roll}, light:{x,y}, cover:{R,L} 0..1, seeThrough } */
+  /* frame: output of Sim.step. view: { bg, head:{yaw,pitch,roll}, light:{x,y} or {R,L}, cover:{R,L} 0..1,
+     seeThrough, prism:{R,L} each {power, base, label}, glasses } */
   Face.prototype.draw = function (frame, view) {
     var ctx = this.ctx, L = this.look, self = this;
     var head = view.head || { yaw: 0, pitch: 0, roll: 0 };
@@ -2029,9 +2161,10 @@ p { margin: 0; }
     ctx.restore();
 
     // eyes
-    var light = view.light || { x: 0, y: 0 };
-    this.drawEye(ctx, 'R', frame.eyes.R, light, P, head);
-    this.drawEye(ctx, 'L', frame.eyes.L, light, P, head);
+    var light = view.light || { x: 0, y: 0 };      // one direction, or one per eye when a prism bends it
+    this.drawEye(ctx, 'R', frame.eyes.R, light.R || light, P, head);
+    this.drawEye(ctx, 'L', frame.eyes.L, light.L || light, P, head);
+    if (view.glasses) this.drawGlasses(ctx, P, head);
 
     // fringe and side hair
     ctx.fillStyle = L.hair;
@@ -2058,6 +2191,7 @@ p { margin: 0; }
       self.eyeScreen[k] = { x: self.cx + s * (shx + c[0] * cr - yy * sr), y: self.cy + s * (shy + c[0] * sr + yy * cr + PIVOT_Y) };
     });
 
+    this.drawPrisms(ctx, view);
     this.drawOccluder(ctx, view);
 
     // paper grain over the whole painting
@@ -2273,6 +2407,86 @@ p { margin: 0; }
     ctx.restore();
   };
 
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // Red-green glasses for the Worth 4 dot test: red before the right eye, green before the left.
+  Face.prototype.drawGlasses = function (ctx, P, head) {
+    var ys = Math.sin(head.yaw * DEG), yc = Math.cos(head.yaw * DEG), pc = Math.cos(head.pitch * DEG);
+    var frame = 'rgba(22,24,28,0.92)';
+    ctx.strokeStyle = frame; ctx.lineWidth = 1.5;
+    [-1, 1].forEach(function (sd) {            // temples, behind the lenses
+      var a = P(sd * 55, -5, 2), b = P(sd * 80, -7, -62);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    });
+    ['R', 'L'].forEach(function (key) {
+      var n = key === 'R' ? 1 : -1, c = P(key === 'R' ? -32 : 32, 1, 6);
+      ctx.save();
+      ctx.translate(c[0], c[1]);
+      ctx.scale(yc - 0.22 * n * ys, pc);
+      roundRect(ctx, -23.5, -17, 47, 34, 10);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = key === 'R' ? 'rgba(255,74,64,0.74)' : 'rgba(46,204,116,0.72)';
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      var sheen = ctx.createLinearGradient(-20, -17, 12, 17);
+      sheen.addColorStop(0, 'rgba(255,255,255,0.26)'); sheen.addColorStop(0.45, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sheen; ctx.fill();
+      ctx.strokeStyle = frame; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
+    });
+    var a2 = P(-8.5, -5, 8), b2 = P(8.5, -5, 8), m2 = P(0, -9, 11);
+    ctx.strokeStyle = frame; ctx.lineWidth = 1.7;
+    ctx.beginPath(); ctx.moveTo(a2[0], a2[1]); ctx.quadraticCurveTo(m2[0], m2[1], b2[0], b2[1]); ctx.stroke();
+  };
+
+  // A loose prism held before an eye: clear glass that thickens toward its base.
+  Face.prototype.drawPrisms = function (ctx, view) {
+    var self = this;
+    if (!view.prism) return;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ['R', 'L'].forEach(function (key) {
+      var z = view.prism[key];
+      if (!z || !(z.power > 0)) return;
+      var c = self.eyeScreen[key], s = self.drawScale || self.scale;
+      var w = 21 * s, h = 17.5 * s, y0 = c.y + 0.5 * s;
+      ctx.save();
+      ctx.translate(c.x, y0);
+      ctx.rotate(-z.base * DEG);                 // local +x is the base direction
+      var g = ctx.createLinearGradient(-w, 0, w, 0);
+      g.addColorStop(0, 'rgba(214,236,244,0.08)'); g.addColorStop(1, 'rgba(186,222,238,0.42)');
+      roundRect(ctx, -w, -h, 2 * w, 2 * h, 2.5 * s);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.72)'; ctx.lineWidth = 1.2; ctx.stroke();
+      var bw = (2.4 + Math.min(z.power, 50) * 0.1) * s;      // the base grows with the power
+      roundRect(ctx, w - bw, -h, bw, 2 * h, 1.4 * s);
+      ctx.fillStyle = 'rgba(236,247,251,0.78)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(18,40,52,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-w + 1, -h + 3 * s); ctx.lineTo(-w + 1, h - 3 * s); ctx.stroke();
+      ctx.restore();
+      if (z.label) {
+        ctx.font = '600 ' + Math.round(clamp(3.2 * s, 10.5, 14)) + 'px "IBM Plex Mono", ui-monospace, monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        var tw = ctx.measureText(z.label).width + 14, th = clamp(5.4 * s, 17, 24);
+        var ly = Math.min(y0 + Math.max(w, h) * 0.82 + th * 0.9, self.H - th / 2 - 4);
+        var lx = clamp(c.x, tw / 2 + 4, self.W - tw / 2 - 4);
+        roundRect(ctx, lx - tw / 2, ly - th / 2, tw, th, th / 2);
+        ctx.fillStyle = 'rgba(12,22,28,0.8)'; ctx.fill();
+        ctx.fillStyle = key === 'R' ? '#FFB3AD' : '#9BE8C2';
+        ctx.fillText(z.label, lx, ly + 0.5);
+        ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      }
+    });
+  };
+
   Face.prototype.drawOccluder = function (ctx, view) {
     var self = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -2362,38 +2576,59 @@ p { margin: 0; }
       '</svg>';
   }
 
-  /* What the patient sees: one bar of light per eye. Red is the right eye, green the left. */
+  /* What the patient sees. Two targets:
+       light — a bar of light, one image per eye (red is the right eye, green the left)
+       w4d   — the Worth 4 dot lights through red-green glasses: the right eye (red lens) sees the red
+               light and the white one as red; the left eye (green lens) sees the two green lights and
+               the white one as green. */
   function DiploView(el) {
-    var W = 360, H = 150, k = 6.2, s = '', d;
-    this.k = k; this.cx = W / 2; this.cy = H / 2;
+    var W = 360, H = 150, s = '', d;
+    this.cx = W / 2; this.cy = H / 2; this.mode = 'light';
+    function grid(cls, k) {
+      var g = '<g class="' + cls + '">';
+      for (d = -25; d <= 25; d += 5) if (Math.abs(d * k) < W / 2 - 6) g += '<line class="d-grid" x1="' + (W / 2 + d * k) + '" y1="6" x2="' + (W / 2 + d * k) + '" y2="' + (H - 6) + '"/>';
+      for (d = -10; d <= 10; d += 5) if (Math.abs(d * k) < H / 2 - 6) g += '<line class="d-grid" x1="6" y1="' + (H / 2 + d * k) + '" x2="' + (W - 6) + '" y2="' + (H / 2 + d * k) + '"/>';
+      return g + '</g>';
+    }
     s += '<svg class="diplo" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="The target as the patient sees it">';
     s += '<rect class="d-bg" x="0" y="0" width="' + W + '" height="' + H + '" rx="10"/>';
-    for (d = -25; d <= 25; d += 5) s += '<line class="d-grid" x1="' + (W / 2 + d * k) + '" y1="6" x2="' + (W / 2 + d * k) + '" y2="' + (H - 6) + '"/>';
-    for (d = -10; d <= 10; d += 5) s += '<line class="d-grid" x1="6" y1="' + (H / 2 + d * k) + '" x2="' + (W - 6) + '" y2="' + (H / 2 + d * k) + '"/>';
+    s += grid('d-g-light', 6.2) + grid('d-g-w4d', 9);
     s += '<text class="d-side" x="10" y="' + (H - 9) + '">patient’s left</text>';
     s += '<text class="d-side" x="' + (W - 10) + '" y="' + (H - 9) + '" text-anchor="end">patient’s right</text>';
     s += '<g class="d-img d-le"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
     s += '<g class="d-img d-re"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
     s += '<g class="d-img d-one"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
+    ['lLeft d-le', 'lRight d-le', 'lBot d-le', 'rTop d-re', 'rBot d-re', 'fBot d-one'].forEach(function (c) {
+      s += '<circle class="d-dot ' + c + '" r="6.5"/>';
+    });
     s += '</svg>';
     el.innerHTML = s;
-    this.gR = el.querySelector('.d-re');
-    this.gL = el.querySelector('.d-le');
-    this.gOne = el.querySelector('.d-one');
+    this.el = el;
+    this.gR = el.querySelector('g.d-re');
+    this.gL = el.querySelector('g.d-le');
+    this.gOne = el.querySelector('g.d-one');
+    this.dots = {};
+    var self = this;
+    ['lLeft', 'lRight', 'lBot', 'rTop', 'rBot', 'fBot'].forEach(function (n) { self.dots[n] = el.querySelector('.' + n); });
+    this.setMode('light');
   }
 
-  DiploView.prototype.update = function (frame, cfg) {
-    var sol = frame.sol, fixKey = sol.fix, f = frame.eyes[fixKey], self = this;
+  DiploView.prototype.setMode = function (mode) {
+    this.mode = mode;
+    this.k = mode === 'w4d' ? 9 : 6.2;
+    this.el.querySelector('.d-g-light').style.display = mode === 'w4d' ? 'none' : '';
+    this.el.querySelector('.d-g-w4d').style.display = mode === 'w4d' ? '' : 'none';
+  };
+
+  // Returns { state } — 'mono' (one eye sees), 'single', 'suppress' or 'double' — plus, for the
+  // Worth 4 dot target, how many lights of each colour the patient reports.
+  DiploView.prototype.update = function (frame, cfg, distCm) {
+    var sol = frame.sol, fixKey = sol.fix, f = frame.eyes[fixKey], self = this, k = this.k, n;
     function img(key) {
       var e = frame.eyes[key], sgn = key === 'R' ? 1 : -1, fs = fixKey === 'R' ? 1 : -1;
       return { x: -(e.errX - f.errX), y: -(e.errY - f.errY), rot: -sgn * e.t + fs * f.t };
     }
-    function place(g, im, on) {
-      g.style.display = on ? '' : 'none';
-      if (!on) return;
-      var x = Math.max(-26, Math.min(26, im.x)), y = Math.max(-10, Math.min(10, im.y));
-      g.setAttribute('transform', 'translate(' + f1(self.cx + x * self.k) + ' ' + f1(self.cy - y * self.k) + ') rotate(' + f1(im.rot) + ')');
-    }
+    function hide(el) { el.style.display = 'none'; }
     var R = img('R'), L = img('L');
     var seeR = frame.eyes.R.seeing, seeL = frame.eyes.L.seeing;
     var sep = Math.abs(R.x - L.x) + Math.abs(R.y - L.y), tilt = Math.abs(R.rot - L.rot);
@@ -2402,13 +2637,47 @@ p { margin: 0; }
     else if (sep < 0.5 && tilt < 2) state = 'single';
     else if (cfg.suppression) state = 'suppress';
     else state = 'double';
-    if (state === 'double') {
-      place(this.gR, R, true); place(this.gL, L, true); place(this.gOne, R, false);
-    } else {
-      place(this.gR, R, false); place(this.gL, L, false);
-      place(this.gOne, { x: 0, y: 0, rot: 0 }, seeR || seeL);
+    var showR = state === 'double' || (state === 'mono' && seeR) || (state === 'suppress' && fixKey === 'R');
+    var showL = state === 'double' || (state === 'mono' && seeL) || (state === 'suppress' && fixKey === 'L');
+    var zero = { x: 0, y: 0, rot: 0 };
+    if (state !== 'double') { R = zero; L = zero; }
+
+    if (this.mode === 'light') {
+      for (n in this.dots) hide(this.dots[n]);
+      var bar = function (g, im, on) {
+        g.style.display = on ? '' : 'none';
+        if (!on) return;
+        var x = Math.max(-26, Math.min(26, im.x)), y = Math.max(-10, Math.min(10, im.y));
+        g.setAttribute('transform', 'translate(' + f1(self.cx + x * k) + ' ' + f1(self.cy - y * k) + ') rotate(' + f1(im.rot) + ')');
+      };
+      bar(this.gR, R, state === 'double');
+      bar(this.gL, L, state === 'double');
+      bar(this.gOne, zero, state !== 'double' && (seeR || seeL));
+      return { state: state };
     }
-    return state;
+
+    hide(this.gR); hide(this.gL); hide(this.gOne);
+    var h = Math.max(1.3, Math.min(3.2, 3 * 33 / (distCm || 600)));       // half the height of the diamond, degrees
+    var limX = 19 - h, limY = 7.4 - h;
+    var rad = f1(Math.max(3.4, Math.min(6.5, h * k * 0.42)));          // smaller lights for the distance target
+    var dot = function (name, im, px, py, on) {
+      var el = self.dots[name];
+      el.style.display = on ? '' : 'none';
+      if (!on) return;
+      el.setAttribute('r', rad);
+      var a = -im.rot * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+      var x = Math.max(-limX, Math.min(limX, im.x)) + px * c - py * sn;
+      var y = Math.max(-limY, Math.min(limY, im.y)) + px * sn + py * c;
+      el.setAttribute('cx', f1(self.cx + x * k)); el.setAttribute('cy', f1(self.cy - y * k));
+    };
+    var fused = state === 'single';
+    dot('rTop', R, 0, h, showR || fused);
+    dot('rBot', R, 0, -h, showR && !fused);
+    dot('lLeft', L, -h, 0, showL || fused);
+    dot('lRight', L, h, 0, showL || fused);
+    dot('lBot', L, 0, -h, showL && !fused);
+    dot('fBot', zero, 0, -h, fused);
+    return { state: state, red: fused ? 1 : (showR ? 2 : 0), green: fused ? 2 : (showL ? 3 : 0), lights: fused ? 4 : (showR ? 2 : 0) + (showL ? 3 : 0) };
   };
 
   /* Readout of the current deviation, the way a prism cover measurement would report it. */
@@ -2475,7 +2744,9 @@ p { margin: 0; }
     input: { tx: 0, ty: 0, dist: 600, cover: null, lids: false },
     headSel: { tilt: 0, doll: false, dollYaw: 0, dollPitch: 0, habitual: false },
     baseA: { yaw: 0, pitch: 0, roll: 0 }, dollA: { yaw: 0, pitch: 0 },
-    coverAnim: { R: 0, L: 0 }, lastCase: null
+    coverAnim: { R: 0, L: 0 }, lastCase: null,
+    prism: { R: { power: 0, base: 180 }, L: { power: 0, base: 0 } }, prismEye: 'R', shifts: {}, prismDraw: null,
+    w4d: false
   };
 
   var stage = $('#stage'), pad = $('#pad'), padDot = $('#padDot'), padKey = '', padCap = '';
@@ -2579,6 +2850,10 @@ p { margin: 0; }
     state.coverAnim = { R: 0, L: 0 };
     $('#distRange').value = 0;
     $('#subHead').hidden = true; $('#subNear').hidden = true;
+    state.prism = { R: { power: 0, base: 180 }, L: { power: 0, base: 0 } };
+    state.prismEye = 'R';
+    state.w4d = false;
+    syncPrism(); syncViewMode();
   }
 
   function startExam(mode, cond, side, look) {
@@ -2635,6 +2910,8 @@ p { margin: 0; }
     $('#paneInfo').hidden = tab !== 'info';
     $('#paneView').hidden = tab !== 'view';
     $('#paneHess').hidden = tab !== 'hess';
+    $('#panePrism').hidden = tab !== 'prism';
+    if (tab === 'prism') renderPrism();
     if (tab === 'info') renderInfo();
     if (tab === 'hess') renderHess();
     face.resize();
@@ -2882,21 +3159,25 @@ p { margin: 0; }
 
   var viewTick = 0;
   function updateView(frame, now) {
-    var st = diplo.update(frame, state.cfg);
+    var st = diplo.update(frame, state.cfg, state.input.dist).state;
     if (now - viewTick < 120) return;
     viewTick = now;
-    var d = V.describe(frame.sol), msg;
-    if (st === 'mono') {
-      var e = frame.eyes;
-      if (!e.R.seeing && !e.L.seeing) msg = 'Neither eye sees the target';
+    var d = V.describe(frame.sol), e = frame.eyes, msg, bits = [];
+    var hidden = st === 'mono' && (e.R.seeing || e.L.seeing) ? (e.R.seeing ? 'L' : 'R') : null;
+    var why = hidden ? (hidden === 'R' ? 'Right' : 'Left') + ' eye ' + (state.input.cover === hidden ? 'covered' : 'behind its lid') : '';
+    if (state.w4d) {
+      if (st === 'mono') msg = hidden ? why + ': sees ' + (hidden === 'L' ? '2 red lights' : '3 green lights') : 'Neither eye sees the lights';
+      else if (st === 'single') msg = 'Sees 4 lights: fusion';
+      else if (st === 'suppress') msg = frame.sol.fix === 'R' ? 'Sees 2 red lights: the left eye is suppressed' : 'Sees 3 green lights: the right eye is suppressed';
       else {
-        var k = e.R.seeing ? 'L' : 'R';
-        msg = (k === 'R' ? 'Right' : 'Left') + ' eye ' + (state.input.cover === k ? 'covered' : 'behind its lid') + ': one image';
+        if (d.hKind) bits.push('red to the ' + (d.hKind === 'eso' ? 'right (uncrossed)' : 'left (crossed)'));
+        if (d.vKind) bits.push('red ' + (d.vKind === 'R' ? 'lower' : 'higher'));
+        msg = 'Sees 5 lights: diplopia' + (bits.length ? ', ' + bits.join(', ') : '');
       }
-    } else if (st === 'single') msg = 'Single vision';
+    } else if (st === 'mono') msg = hidden ? why + ': one image' : 'Neither eye sees the target';
+    else if (st === 'single') msg = 'Single vision';
     else if (st === 'suppress') msg = 'Misaligned, but one image is suppressed: no diplopia';
     else {
-      var bits = [];
       if (d.hKind) bits.push(d.hKind === 'eso' ? 'uncrossed' : 'crossed');
       if (d.vKind) bits.push((d.vKind === 'R' ? 'right' : 'left') + ' eye’s image lower');
       msg = 'Double vision' + (bits.length ? ': ' + bits.join(', ') : '');
@@ -2904,6 +3185,116 @@ p { margin: 0; }
     $('#dState').textContent = msg;
     $('#roH').textContent = d.h; $('#roV').textContent = d.v; $('#roT').textContent = d.t;
   }
+
+  // The target the patient reports on: a fixation light, or the Worth 4 dot lights through red-green glasses.
+  function syncViewMode() {
+    $$('#viewMode button').forEach(function (b) { pressed(b, (b.dataset.vmode === 'w4d') === state.w4d); });
+    diplo.setMode(state.w4d ? 'w4d' : 'light');
+    $('#dLegend').innerHTML = state.w4d
+      ? 'The patient wears a red lens before the right eye and a green lens before the left. The top light is red, the side lights green, the bottom one white.'
+      : '<span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image';
+    viewTick = 0;
+  }
+  $('#viewMode').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-vmode]');
+    if (!b) return;
+    state.w4d = b.dataset.vmode === 'w4d';
+    syncViewMode();
+  });
+
+  /* ---------- prisms ---------- */
+  var POWERS = [0, 1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50];   // a prism bar
+  function norm360(a) { return ((a % 360) + 360) % 360; }
+  // Base direction as the examiner sees it: 0° toward the patient's left, counter-clockwise.
+  function baseAngle(key, name) { return name === 'up' ? 90 : name === 'down' ? 270 : ((name === 'out') === (key === 'R') ? 180 : 0); }
+  function baseName(key, base) {
+    var names = ['out', 'in', 'up', 'down'];
+    for (var i = 0; i < 4; i++) if (Math.abs(norm360(base - baseAngle(key, names[i]) + 180) - 180) < 2.5) return names[i];
+    return null;
+  }
+  function prismLabel(key, z) {
+    var n = baseName(key, z.base);
+    return z.power + 'Δ ' + (n ? 'B' + n.charAt(0).toUpperCase() : Math.round(z.base) + '°');
+  }
+  function syncPrism() {
+    state.shifts = {}; state.prismDraw = {};
+    ['R', 'L'].forEach(function (k) {
+      var z = state.prism[k];
+      if (!(z.power > 0)) return;
+      state.shifts[k] = E.prismShift(z.power, z.base);
+      state.prismDraw[k] = { power: z.power, base: z.base, label: prismLabel(k, z) };
+    });
+  }
+  function renderPrism() {
+    var k = state.prismEye, z = state.prism[k];
+    $$('#prismEye button').forEach(function (b) {
+      var zz = state.prism[b.dataset.peye];
+      pressed(b, b.dataset.peye === k);
+      b.innerHTML = (b.dataset.peye === 'R' ? 'Right eye' : 'Left eye') + (zz.power ? '<small>' + zz.power + 'Δ</small>' : '');
+    });
+    $('#pRange').value = POWERS.indexOf(z.power);
+    $('#pPower').textContent = z.power ? z.power + 'Δ' : 'No prism';
+    $('#dialNeedle').setAttribute('transform', 'rotate(' + (-z.base) + ')');
+    $('#prismDial').setAttribute('aria-valuenow', Math.round(z.base));
+    var nm = baseName(k, z.base);
+    $$('.basebtns .seg').forEach(function (b) { pressed(b, b.dataset.base === nm); });
+    $('#pSum').textContent = ['R', 'L'].map(function (key) {
+      var zz = state.prism[key], n = baseName(key, zz.base);
+      return (key === 'R' ? 'Right eye: ' : 'Left eye: ') +
+        (zz.power ? zz.power + 'Δ ' + (n ? 'base ' + n : 'base at ' + Math.round(zz.base) + '°') : 'no prism') + '.';
+    }).join(' ');
+  }
+  function setPrism(change) { change(state.prism[state.prismEye]); syncPrism(); renderPrism(); }
+  (function () {
+    var t = '';
+    for (var a = 0; a < 360; a += 15) {
+      var r0 = a % 90 === 0 ? 42 : 45.5, c = Math.cos(a * Math.PI / 180), sn = Math.sin(a * Math.PI / 180);
+      t += '<line class="dial-tick" x1="' + (c * r0).toFixed(1) + '" y1="' + (-sn * r0).toFixed(1) + '" x2="' + (c * 50).toFixed(1) + '" y2="' + (-sn * 50).toFixed(1) + '"/>';
+    }
+    $('#dialTicks').innerHTML = t;
+  })();
+  $('#prismEye').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-peye]');
+    if (!b) return;
+    state.prismEye = b.dataset.peye;
+    renderPrism();
+  });
+  $('#pRange').addEventListener('input', function () { var v = Number(this.value); setPrism(function (z) { z.power = POWERS[v]; }); });
+  function stepPower(dir) {
+    setPrism(function (z) { z.power = POWERS[clamp(POWERS.indexOf(z.power) + dir, 0, POWERS.length - 1)]; });
+  }
+  $('#pMinus').addEventListener('click', function () { stepPower(-1); });
+  $('#pPlus').addEventListener('click', function () { stepPower(1); });
+  $('.basebtns').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-base]');
+    if (!b) return;
+    setPrism(function (z) { z.base = baseAngle(state.prismEye, b.dataset.base); });
+  });
+  $('#pClear').addEventListener('click', function () {
+    state.prism.R.power = 0; state.prism.L.power = 0;
+    syncPrism(); renderPrism();
+  });
+  var dial = $('#prismDial'), dialDrag = null;
+  function dialSet(ev) {
+    var r = dial.getBoundingClientRect();
+    var a = Math.atan2(-(ev.clientY - (r.top + r.height / 2)), ev.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+    a = norm360(Math.round(a / 5) * 5);
+    [0, 90, 180, 270].forEach(function (c) { if (Math.abs(norm360(a - c + 180) - 180) <= 8) a = c; });   // settle on the cardinal bases
+    setPrism(function (z) { z.base = a; });
+  }
+  dial.addEventListener('pointerdown', function (ev) {
+    try { dial.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    dialDrag = ev.pointerId; dialSet(ev); ev.preventDefault();
+  });
+  dial.addEventListener('pointermove', function (ev) { if (dialDrag === ev.pointerId) dialSet(ev); });
+  dial.addEventListener('pointerup', function (ev) { if (dialDrag === ev.pointerId) dialDrag = null; });
+  dial.addEventListener('pointercancel', function (ev) { if (dialDrag === ev.pointerId) dialDrag = null; });
+  dial.addEventListener('keydown', function (ev) {
+    var d = { ArrowLeft: 5, ArrowUp: 5, ArrowRight: -5, ArrowDown: -5 }[ev.key];
+    if (!d) return;
+    setPrism(function (z) { z.base = norm360(z.base + d); });
+    ev.preventDefault(); ev.stopPropagation();
+  });
 
   /* ---------- settings ---------- */
   var sizeChanged = false;
@@ -3050,12 +3441,105 @@ p { margin: 0; }
     } else if (b.dataset.act === 'keep') renderProgress();
   });
 
+  /* ---------- intro: each step runs a short scripted examination on a live patient ---------- */
+  function keyf(t, frames, period) {            // smooth interpolation through [time, value] pairs, looping
+    t = t % period;
+    for (var i = 1; i < frames.length; i++) {
+      if (t <= frames[i][0]) {
+        var a = frames[i - 1], b = frames[i], u = (t - a[0]) / (b[0] - a[0]);
+        u = u * u * (3 - 2 * u);
+        return a[1] + (b[1] - a[1]) * u;
+      }
+    }
+    return frames[frames.length - 1][1];
+  }
+  var INTRO = [
+    { title: 'A patient who is always in', cond: 'normal', side: 'R', look: 4, cap: 'Normal eye movements',
+      text: 'Cardinal Gaze simulates the eye movement examination. You face the patient, so the patient’s right eye is on your left. Red marks the right eye and green the left, as on a Hess screen.',
+      run: function (t) { return { tx: 28 * Math.sin(t * 0.8), ty: 14 * Math.sin(t * 1.25 + 1) }; } },
+    { title: 'Move the light, watch the eyes', cond: 'cn6', side: 'R', look: 0, cap: 'Right sixth nerve palsy: the right eye does not abduct',
+      text: 'Drag on the gaze pad, or on the face itself, and the patient follows. Tap for a saccade. Compare the two eyes in each of the nine positions of gaze.',
+      run: function (t) { return { tx: keyf(t, [[0, 0], [1, 30], [2.8, 30], [3.8, 0], [4.4, 0], [5.4, -30], [6.8, -30], [7.8, 0], [8.4, 0]], 8.4) }; } },
+    { title: 'Cover, uncover, alternate', cond: 'et', side: 'R', look: 1, cap: 'Esotropia: the uncovered eye swings out to fix',
+      text: 'Cover one eye and watch the other. If it moves to take up fixation, the deviation is manifest. Alternate the cover to bring out the whole angle.',
+      run: function (t) { var u = t % 5; return { cover: u < 0.9 ? null : u < 2.2 ? 'R' : u < 3 ? null : u < 4.3 ? 'L' : null }; } },
+    { title: 'Tilt and turn the head', cond: 'cn4', side: 'R', look: 3, cap: 'Right fourth nerve palsy: larger on tilt to the right',
+      text: 'Tilt the head to each shoulder for the three-step test. Turn it with the doll’s head manoeuvre to see whether the reflex overcomes a gaze palsy.',
+      run: function (t) { return { roll: keyf(t, [[0, 0], [1, 30], [3.2, 30], [4.2, 0], [4.8, 0], [5.8, -30], [7.8, -30], [8.8, 0], [9.4, 0]], 9.4) }; } },
+    { title: 'Measure with prisms', cond: 'et', side: 'R', look: 2, cap: '',
+      text: 'Hold a prism of any power before either eye and turn its base in any direction. Repeat the cover test and add power until nothing moves.',
+      run: function (t) {
+        var u = t % 13, power = [0, 10, 20, 29][Math.min(3, Math.floor(u / 3.2))];
+        return { cover: Math.floor(u / 0.8) % 2 ? 'L' : 'R', prism: { R: { power: power, base: 180, label: power + 'Δ BO' } },
+          cap: 'Prism cover test: ' + (power ? power + 'Δ base out' : 'no prism yet') + (power === 29 ? ', no movement' : '') };
+      } },
+    { title: 'Ask what the patient sees', cond: 'cn6', side: 'L', look: 0, cap: 'Worth 4 dot glasses: red before the right eye, green before the left',
+      text: 'Patient’s view shows the double images and the Worth 4 dot test through red-green glasses. The Hess chart plots the field of each eye.',
+      run: function (t) { return { glasses: true, tx: keyf(t, [[0, 0], [1.2, -26], [3.2, -26], [4.4, 0], [6, 0]], 6) }; } },
+    { title: 'Two ways to practise', cond: 'normal', side: 'R', look: 4, cap: '',
+      text: 'Textbook shows each of 24 conditions with the findings beside the patient. Diagnose gives you an unknown patient, then scores your diagnosis, side and site.',
+      run: function (t) { return { tx: 18 * Math.sin(t * 0.6), ty: 8 * Math.sin(t * 0.9) }; } }
+  ];
+  var intro = { open: false, face: null, sim: null, step: 0, t: 0, cover: { R: 0, L: 0 }, cap: '' };
+  function introStep(i) {
+    var st = INTRO[i];
+    intro.step = i; intro.t = 0; intro.cover = { R: 0, L: 0 };
+    intro.sim = new E.Sim(C.byId[st.cond].build(st.side));
+    intro.face.setLook(CG.looks[st.look]);
+    $('#introStep').textContent = (i + 1) + ' of ' + INTRO.length;
+    $('#introTitle').textContent = st.title;
+    $('#introText').textContent = st.text;
+    $('#introDots').innerHTML = INTRO.map(function (x, n) { return '<i' + (n === i ? ' class="on"' : '') + '></i>'; }).join('');
+    $('#introBack').hidden = i === 0;
+    $('#introSkip').hidden = i === INTRO.length - 1;
+    $('#introNext').textContent = i === INTRO.length - 1 ? 'Start' : 'Next';
+    intro.cap = null;
+  }
+  function openIntro() {
+    if (!intro.face) { intro.face = new CG.Face($('#introCanvas')); intro.face.eyeLine = 0.45; }
+    $('#intro').hidden = false;
+    intro.open = true;
+    intro.face.resize();
+    introStep(0);
+  }
+  function closeIntro() {
+    $('#intro').hidden = true;
+    intro.open = false;
+    store.set('intro', true);
+    if (state.screen === 'home') hero.face.resize();
+  }
+  $('#introNext').addEventListener('click', function () { if (intro.step < INTRO.length - 1) introStep(intro.step + 1); else closeIntro(); });
+  $('#introBack').addEventListener('click', function () { if (intro.step > 0) introStep(intro.step - 1); });
+  $('#introSkip').addEventListener('click', closeIntro);
+  function introFrame(dt) {
+    var st = INTRO[intro.step];
+    intro.t = reduceMotion ? 1.6 : intro.t + dt;          // a still frame for viewers who ask for less motion
+    var a = st.run(intro.t), shifts = {}, k;
+    if (a.prism) for (k in a.prism) if (a.prism[k].power > 0) shifts[k] = E.prismShift(a.prism[k].power, a.prism[k].base);
+    var f = intro.sim.step(dt, { tx: a.tx || 0, ty: a.ty || 0, dist: 600, yaw: 0, pitch: 0, roll: a.roll || 0,
+      cover: a.cover || null, lidsLifted: false, prism: shifts });
+    ['R', 'L'].forEach(function (key) {
+      intro.cover[key] += clamp((a.cover === key ? 1 : 0) - intro.cover[key], -dt * 6, dt * 6);
+    });
+    intro.face.draw(f, { bg: stageBg, head: { yaw: 0, pitch: 0, roll: a.roll || 0 }, light: eyeLights(f.sol, shifts),
+      cover: intro.cover, seeThrough: true, prism: a.prism, glasses: a.glasses });
+    var cap = a.cap != null ? a.cap : st.cap;
+    if (cap !== intro.cap) { intro.cap = cap; $('#introCap').textContent = cap; }
+  }
+
+  // The fixation light as each eye receives it: a prism before an eye bends it toward the apex.
+  function eyeLights(sol, shifts) {
+    function one(k) { var p = shifts && shifts[k]; return { x: sol.ox + (p ? p.x : 0), y: sol.oy + (p ? p.y : 0) }; }
+    return { R: one('R'), L: one('L') };
+  }
+
   /* ---------- navigation ---------- */
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-go]');
     if (!b) return;
     var go = b.dataset.go;
     if (go === 'settings') openSettings();
+    else if (go === 'intro') openIntro();
     else if (go === 'textbook') show('picker');
     else if (go === 'diagnose') newCase();
     else show(go);
@@ -3068,6 +3552,7 @@ p { margin: 0; }
     var dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
     last = now;
     if (document.hidden) return;
+    if (intro.open) { introFrame(dt); return; }
     if (state.screen === 'home') { heroFrame(dt); return; }
     if (state.screen !== 'exam' || !state.sim) return;
 
@@ -3084,7 +3569,7 @@ p { margin: 0; }
 
     var frame = state.sim.step(dt, {
       tx: inp.tx, ty: inp.ty, dist: inp.dist, yaw: head.yaw, pitch: head.pitch, roll: head.roll,
-      vorX: -state.dollA.yaw, vorY: -state.dollA.pitch, cover: inp.cover, lidsLifted: inp.lids
+      vorX: -state.dollA.yaw, vorY: -state.dollA.pitch, cover: inp.cover, lidsLifted: inp.lids, prism: state.shifts
     });
     state.frame = frame;
     ['R', 'L'].forEach(function (k) {
@@ -3092,25 +3577,26 @@ p { margin: 0; }
       state.coverAnim[k] += clamp(want - state.coverAnim[k], -dt * 6, dt * 6);
     });
     face.draw(frame, {
-      bg: stageBg, head: head, light: { x: frame.sol.ox, y: frame.sol.oy },
-      cover: state.coverAnim, seeThrough: opts.seeThrough
+      bg: stageBg, head: head, light: eyeLights(frame.sol, state.shifts),
+      cover: state.coverAnim, seeThrough: opts.seeThrough, prism: state.prismDraw, glasses: state.w4d
     });
     updatePad();
     if (state.tab === 'view' && !$('#paneView').hidden) updateView(frame, now);
   }
 
   try {
-    var ro = new ResizeObserver(function () { face.resize(); hero.face.resize(); });
+    var ro = new ResizeObserver(function () { face.resize(); hero.face.resize(); if (intro.face) intro.face.resize(); });
     ro.observe(stage); ro.observe(hero.face.canvas);
   } catch (e) {
     window.addEventListener('resize', function () { face.resize(); hero.face.resize(); });
   }
 
   show('home');
+  if (!store.get('intro', false)) openIntro();     // first visit
   requestAnimationFrame(tick);
 
   // test hook
-  CG.app = { state: state, startExam: startExam, newCase: newCase, show: show, setTab: setTab };
+  CG.app = { state: state, startExam: startExam, newCase: newCase, show: show, setTab: setTab, intro: intro, openIntro: openIntro, closeIntro: closeIntro };
 })();
 </script>
 </body>

@@ -175,6 +175,13 @@
     var vg = clamp(V.bias + demand * V.gain, -40, V.max);
     var ctx = { vorX: st.vorX || 0, vorY: st.vorY || 0, roll: roll, fatigue: st.fatigue || 0 };
     var req = { R: { a: ox - demand / 2, e: oy }, L: { a: -ox - demand / 2, e: oy } };
+    // A prism displaces the target toward its apex for the eye behind it, so that eye has to
+    // turn by the same angle to fixate. st.prism holds that displacement per eye, in world degrees.
+    var pr = st.prism;
+    if (pr) {
+      if (pr.R) { req.R.a += pr.R.x; req.R.e += pr.R.y; }
+      if (pr.L) { req.L.a -= pr.L.x; req.L.e += pr.L.y; }
+    }
     var can = { R: sees(cfg, 'R', st), L: sees(cfg, 'L', st) };
 
     function attempt(fix) {
@@ -270,7 +277,7 @@
     var st = {
       tx: input.tx, ty: input.ty, dist: input.dist, yaw: input.yaw, pitch: input.pitch, roll: input.roll,
       vorX: input.vorX, vorY: input.vorY, cover: input.cover, lidsLifted: input.lidsLifted,
-      fatigue: this.fatigue, lastFix: this.lastFix
+      prism: input.prism, fatigue: this.fatigue, lastFix: this.lastFix
     };
     var sol = solve(cfg, st);
     this.lastFix = sol.fix;
@@ -435,8 +442,15 @@
 
   function prism(deg) { return 100 * Math.tan(Math.abs(deg) * DEG); }
 
+  // Displacement produced by a prism of `power` dioptres whose base points along `base` degrees,
+  // in the examiner's view: 0° toward the patient's left, 90° up, 180° toward the patient's right.
+  function prismShift(power, base) {
+    var th = Math.atan((power || 0) / 100) / DEG;
+    return { x: Math.cos(base * DEG) * th, y: -Math.sin(base * DEG) * th };
+  }
+
   CG.engine = {
     K: K, makeEye: makeEye, makeConfig: makeConfig, eyePosition: eyePosition, solve: solve,
-    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, soften: soften, prism: prism, clamp: clamp, lerp: lerp
+    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, soften: soften, prism: prism, prismShift: prismShift, clamp: clamp, lerp: lerp
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

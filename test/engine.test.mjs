@@ -298,6 +298,50 @@ check('Every condition builds for both sides and solves without NaN', () => {
   }
 });
 
+check('Prisms: base direction turns the eye toward the apex', () => {
+  const cfg = cfgOf('normal');
+  const bo = E.prismShift(20, 180), bd = E.prismShift(10, 270);          // right eye: base out, base down
+  near(bo.x, -11.31, 0.02); near(bo.y, 0, 0.01); near(bd.y, 5.71, 0.02);
+  const s = at(cfg, { prism: { R: bo }, cover: 'L' });                    // right eye fixing through the prism
+  near(s.eyes.R.a, -11.31 - s.demand / 2, 0.1, 'adducts behind a base-out prism');
+  assert.ok(at(cfg, { prism: { R: E.prismShift(8, 180) } }).fused, 'fuses a small base-out prism');
+  assert.ok(!at(cfg, { prism: { R: E.prismShift(30, 180) } }).fused, 'breaks with a large one');
+  assert.ok(!at(cfg, { prism: { R: E.prismShift(8, 90) } }).fused, 'vertical fusion range is small');
+});
+
+check('Prism cover test: neutralises a comitant esotropia, reverses when too strong', () => {
+  const cfg = cfgOf('et');
+  const angle = at(cfg, {}).dev.eso;
+  const pd = E.prism(angle);
+  for (const eye of ['R', 'L']) {
+    const base = eye === 'R' ? 180 : 0;                                   // base out for either eye
+    for (const cover of ['R', 'L']) {
+      near(at(cfg, { prism: { [eye]: E.prismShift(pd, base) }, cover }).dev.eso, 0, 0.1, `prism on ${eye}, cover ${cover}`);
+    }
+    assert.ok(at(cfg, { prism: { [eye]: E.prismShift(pd / 2, base) } }).dev.eso > 4, 'under-corrected: still eso');
+    assert.ok(at(cfg, { prism: { [eye]: E.prismShift(pd + 15, base) } }).dev.eso < -3, 'over-corrected: reversal');
+    assert.ok(Math.abs(at(cfg, { prism: { [eye]: E.prismShift(pd, base + 180) } }).dev.eso) > 25, 'base in doubles it');
+  }
+});
+
+check('Prism cover test: primary and secondary deviation need different prisms in a palsy', () => {
+  const cfg = cfgOf('cn6', 'R');
+  const primary = at(cfg, { cover: 'R' }).dev.eso, secondary = at(cfg, { cover: 'L' }).dev.eso;
+  near(at(cfg, { prism: { R: E.prismShift(E.prism(primary), 180) }, cover: 'R' }).dev.eso, 0, 0.15, 'prism over the palsied eye');
+  near(at(cfg, { prism: { L: E.prismShift(E.prism(secondary), 0) }, cover: 'L' }).dev.eso, 0, 0.15, 'prism over the sound eye');
+  assert.ok(secondary > primary + 2);
+});
+
+check('Prisms: a vertical prism neutralises a hypertropia; Krimsky moves the other eye', () => {
+  const iv = cfgOf('cn4', 'R');
+  const hyper = at(iv, { cover: 'R' }).dev.rHyper;
+  near(at(iv, { prism: { R: E.prismShift(E.prism(hyper), 270) }, cover: 'R' }).dev.rHyper, 0, 0.15, 'base down over the higher eye');
+  const et = cfgOf('et');
+  const before = at(et, { lastFix: 'R' }).eyes.L.x;
+  const after = at(et, { lastFix: 'R', prism: { R: E.prismShift(E.prism(16), 180) } }).eyes.L.x;   // base out over the fixing eye
+  near(before, 16, 0.6); near(after, 0, 0.8, 'deviating eye is brought straight');
+});
+
 check('Realistic size: same pattern, smaller angles, posture still fuses', () => {
   const soft = (id, side) => E.soften(cfgOf(id, side), 0.65);
   const vi = soft('cn6', 'R'), viFull = cfgOf('cn6', 'R');

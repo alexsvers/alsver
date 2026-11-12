@@ -16,7 +16,11 @@ Open `index.html` in a browser. It is a single self-contained file and works on 
   down to the near point, lid lift.
 - **Settings**: deviation size, either Clear (larger angles, easy to see on a phone) or
   Realistic (partial palsies and smaller angles).
-- **Patient's view**: the target as the patient sees it, one image per eye, with the deviation in prism dioptres.
+- **Prisms**: a loose prism of any power before either eye, base turned in any direction, for the
+  prism cover test (and Krimsky).
+- **Patient's view**: the target as the patient sees it, one image per eye, with the deviation in prism
+  dioptres. The target can be switched to the Worth 4 dot lights, seen through red-green glasses.
+- **Intro**: a short scripted tour on first visit, each step run on a live simulated patient.
 - **Hess chart** computed from the same model.
 
 Red is the right eye and green is the left eye throughout, as on a Hess screen.

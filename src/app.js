@@ -41,7 +41,9 @@
     input: { tx: 0, ty: 0, dist: 600, cover: null, lids: false },
     headSel: { tilt: 0, doll: false, dollYaw: 0, dollPitch: 0, habitual: false },
     baseA: { yaw: 0, pitch: 0, roll: 0 }, dollA: { yaw: 0, pitch: 0 },
-    coverAnim: { R: 0, L: 0 }, lastCase: null
+    coverAnim: { R: 0, L: 0 }, lastCase: null,
+    prism: { R: { power: 0, base: 180 }, L: { power: 0, base: 0 } }, prismEye: 'R', shifts: {}, prismDraw: null,
+    w4d: false
   };
 
   var stage = $('#stage'), pad = $('#pad'), padDot = $('#padDot'), padKey = '', padCap = '';
@@ -145,6 +147,10 @@
     state.coverAnim = { R: 0, L: 0 };
     $('#distRange').value = 0;
     $('#subHead').hidden = true; $('#subNear').hidden = true;
+    state.prism = { R: { power: 0, base: 180 }, L: { power: 0, base: 0 } };
+    state.prismEye = 'R';
+    state.w4d = false;
+    syncPrism(); syncViewMode();
   }
 
   function startExam(mode, cond, side, look) {
@@ -201,6 +207,8 @@
     $('#paneInfo').hidden = tab !== 'info';
     $('#paneView').hidden = tab !== 'view';
     $('#paneHess').hidden = tab !== 'hess';
+    $('#panePrism').hidden = tab !== 'prism';
+    if (tab === 'prism') renderPrism();
     if (tab === 'info') renderInfo();
     if (tab === 'hess') renderHess();
     face.resize();
@@ -448,21 +456,25 @@
 
   var viewTick = 0;
   function updateView(frame, now) {
-    var st = diplo.update(frame, state.cfg);
+    var st = diplo.update(frame, state.cfg, state.input.dist).state;
     if (now - viewTick < 120) return;
     viewTick = now;
-    var d = V.describe(frame.sol), msg;
-    if (st === 'mono') {
-      var e = frame.eyes;
-      if (!e.R.seeing && !e.L.seeing) msg = 'Neither eye sees the target';
+    var d = V.describe(frame.sol), e = frame.eyes, msg, bits = [];
+    var hidden = st === 'mono' && (e.R.seeing || e.L.seeing) ? (e.R.seeing ? 'L' : 'R') : null;
+    var why = hidden ? (hidden === 'R' ? 'Right' : 'Left') + ' eye ' + (state.input.cover === hidden ? 'covered' : 'behind its lid') : '';
+    if (state.w4d) {
+      if (st === 'mono') msg = hidden ? why + ': sees ' + (hidden === 'L' ? '2 red lights' : '3 green lights') : 'Neither eye sees the lights';
+      else if (st === 'single') msg = 'Sees 4 lights: fusion';
+      else if (st === 'suppress') msg = frame.sol.fix === 'R' ? 'Sees 2 red lights: the left eye is suppressed' : 'Sees 3 green lights: the right eye is suppressed';
       else {
-        var k = e.R.seeing ? 'L' : 'R';
-        msg = (k === 'R' ? 'Right' : 'Left') + ' eye ' + (state.input.cover === k ? 'covered' : 'behind its lid') + ': one image';
+        if (d.hKind) bits.push('red to the ' + (d.hKind === 'eso' ? 'right (uncrossed)' : 'left (crossed)'));
+        if (d.vKind) bits.push('red ' + (d.vKind === 'R' ? 'lower' : 'higher'));
+        msg = 'Sees 5 lights: diplopia' + (bits.length ? ', ' + bits.join(', ') : '');
       }
-    } else if (st === 'single') msg = 'Single vision';
+    } else if (st === 'mono') msg = hidden ? why + ': one image' : 'Neither eye sees the target';
+    else if (st === 'single') msg = 'Single vision';
     else if (st === 'suppress') msg = 'Misaligned, but one image is suppressed: no diplopia';
     else {
-      var bits = [];
       if (d.hKind) bits.push(d.hKind === 'eso' ? 'uncrossed' : 'crossed');
       if (d.vKind) bits.push((d.vKind === 'R' ? 'right' : 'left') + ' eye’s image lower');
       msg = 'Double vision' + (bits.length ? ': ' + bits.join(', ') : '');
@@ -470,6 +482,116 @@
     $('#dState').textContent = msg;
     $('#roH').textContent = d.h; $('#roV').textContent = d.v; $('#roT').textContent = d.t;
   }
+
+  // The target the patient reports on: a fixation light, or the Worth 4 dot lights through red-green glasses.
+  function syncViewMode() {
+    $$('#viewMode button').forEach(function (b) { pressed(b, (b.dataset.vmode === 'w4d') === state.w4d); });
+    diplo.setMode(state.w4d ? 'w4d' : 'light');
+    $('#dLegend').innerHTML = state.w4d
+      ? 'The patient wears a red lens before the right eye and a green lens before the left. The top light is red, the side lights green, the bottom one white.'
+      : '<span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image';
+    viewTick = 0;
+  }
+  $('#viewMode').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-vmode]');
+    if (!b) return;
+    state.w4d = b.dataset.vmode === 'w4d';
+    syncViewMode();
+  });
+
+  /* ---------- prisms ---------- */
+  var POWERS = [0, 1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50];   // a prism bar
+  function norm360(a) { return ((a % 360) + 360) % 360; }
+  // Base direction as the examiner sees it: 0° toward the patient's left, counter-clockwise.
+  function baseAngle(key, name) { return name === 'up' ? 90 : name === 'down' ? 270 : ((name === 'out') === (key === 'R') ? 180 : 0); }
+  function baseName(key, base) {
+    var names = ['out', 'in', 'up', 'down'];
+    for (var i = 0; i < 4; i++) if (Math.abs(norm360(base - baseAngle(key, names[i]) + 180) - 180) < 2.5) return names[i];
+    return null;
+  }
+  function prismLabel(key, z) {
+    var n = baseName(key, z.base);
+    return z.power + 'Δ ' + (n ? 'B' + n.charAt(0).toUpperCase() : Math.round(z.base) + '°');
+  }
+  function syncPrism() {
+    state.shifts = {}; state.prismDraw = {};
+    ['R', 'L'].forEach(function (k) {
+      var z = state.prism[k];
+      if (!(z.power > 0)) return;
+      state.shifts[k] = E.prismShift(z.power, z.base);
+      state.prismDraw[k] = { power: z.power, base: z.base, label: prismLabel(k, z) };
+    });
+  }
+  function renderPrism() {
+    var k = state.prismEye, z = state.prism[k];
+    $$('#prismEye button').forEach(function (b) {
+      var zz = state.prism[b.dataset.peye];
+      pressed(b, b.dataset.peye === k);
+      b.innerHTML = (b.dataset.peye === 'R' ? 'Right eye' : 'Left eye') + (zz.power ? '<small>' + zz.power + 'Δ</small>' : '');
+    });
+    $('#pRange').value = POWERS.indexOf(z.power);
+    $('#pPower').textContent = z.power ? z.power + 'Δ' : 'No prism';
+    $('#dialNeedle').setAttribute('transform', 'rotate(' + (-z.base) + ')');
+    $('#prismDial').setAttribute('aria-valuenow', Math.round(z.base));
+    var nm = baseName(k, z.base);
+    $$('.basebtns .seg').forEach(function (b) { pressed(b, b.dataset.base === nm); });
+    $('#pSum').textContent = ['R', 'L'].map(function (key) {
+      var zz = state.prism[key], n = baseName(key, zz.base);
+      return (key === 'R' ? 'Right eye: ' : 'Left eye: ') +
+        (zz.power ? zz.power + 'Δ ' + (n ? 'base ' + n : 'base at ' + Math.round(zz.base) + '°') : 'no prism') + '.';
+    }).join(' ');
+  }
+  function setPrism(change) { change(state.prism[state.prismEye]); syncPrism(); renderPrism(); }
+  (function () {
+    var t = '';
+    for (var a = 0; a < 360; a += 15) {
+      var r0 = a % 90 === 0 ? 42 : 45.5, c = Math.cos(a * Math.PI / 180), sn = Math.sin(a * Math.PI / 180);
+      t += '<line class="dial-tick" x1="' + (c * r0).toFixed(1) + '" y1="' + (-sn * r0).toFixed(1) + '" x2="' + (c * 50).toFixed(1) + '" y2="' + (-sn * 50).toFixed(1) + '"/>';
+    }
+    $('#dialTicks').innerHTML = t;
+  })();
+  $('#prismEye').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-peye]');
+    if (!b) return;
+    state.prismEye = b.dataset.peye;
+    renderPrism();
+  });
+  $('#pRange').addEventListener('input', function () { var v = Number(this.value); setPrism(function (z) { z.power = POWERS[v]; }); });
+  function stepPower(dir) {
+    setPrism(function (z) { z.power = POWERS[clamp(POWERS.indexOf(z.power) + dir, 0, POWERS.length - 1)]; });
+  }
+  $('#pMinus').addEventListener('click', function () { stepPower(-1); });
+  $('#pPlus').addEventListener('click', function () { stepPower(1); });
+  $('.basebtns').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-base]');
+    if (!b) return;
+    setPrism(function (z) { z.base = baseAngle(state.prismEye, b.dataset.base); });
+  });
+  $('#pClear').addEventListener('click', function () {
+    state.prism.R.power = 0; state.prism.L.power = 0;
+    syncPrism(); renderPrism();
+  });
+  var dial = $('#prismDial'), dialDrag = null;
+  function dialSet(ev) {
+    var r = dial.getBoundingClientRect();
+    var a = Math.atan2(-(ev.clientY - (r.top + r.height / 2)), ev.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+    a = norm360(Math.round(a / 5) * 5);
+    [0, 90, 180, 270].forEach(function (c) { if (Math.abs(norm360(a - c + 180) - 180) <= 8) a = c; });   // settle on the cardinal bases
+    setPrism(function (z) { z.base = a; });
+  }
+  dial.addEventListener('pointerdown', function (ev) {
+    try { dial.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    dialDrag = ev.pointerId; dialSet(ev); ev.preventDefault();
+  });
+  dial.addEventListener('pointermove', function (ev) { if (dialDrag === ev.pointerId) dialSet(ev); });
+  dial.addEventListener('pointerup', function (ev) { if (dialDrag === ev.pointerId) dialDrag = null; });
+  dial.addEventListener('pointercancel', function (ev) { if (dialDrag === ev.pointerId) dialDrag = null; });
+  dial.addEventListener('keydown', function (ev) {
+    var d = { ArrowLeft: 5, ArrowUp: 5, ArrowRight: -5, ArrowDown: -5 }[ev.key];
+    if (!d) return;
+    setPrism(function (z) { z.base = norm360(z.base + d); });
+    ev.preventDefault(); ev.stopPropagation();
+  });
 
   /* ---------- settings ---------- */
   var sizeChanged = false;
@@ -616,12 +738,105 @@
     } else if (b.dataset.act === 'keep') renderProgress();
   });
 
+  /* ---------- intro: each step runs a short scripted examination on a live patient ---------- */
+  function keyf(t, frames, period) {            // smooth interpolation through [time, value] pairs, looping
+    t = t % period;
+    for (var i = 1; i < frames.length; i++) {
+      if (t <= frames[i][0]) {
+        var a = frames[i - 1], b = frames[i], u = (t - a[0]) / (b[0] - a[0]);
+        u = u * u * (3 - 2 * u);
+        return a[1] + (b[1] - a[1]) * u;
+      }
+    }
+    return frames[frames.length - 1][1];
+  }
+  var INTRO = [
+    { title: 'A patient who is always in', cond: 'normal', side: 'R', look: 4, cap: 'Normal eye movements',
+      text: 'Cardinal Gaze simulates the eye movement examination. You face the patient, so the patient’s right eye is on your left. Red marks the right eye and green the left, as on a Hess screen.',
+      run: function (t) { return { tx: 28 * Math.sin(t * 0.8), ty: 14 * Math.sin(t * 1.25 + 1) }; } },
+    { title: 'Move the light, watch the eyes', cond: 'cn6', side: 'R', look: 0, cap: 'Right sixth nerve palsy: the right eye does not abduct',
+      text: 'Drag on the gaze pad, or on the face itself, and the patient follows. Tap for a saccade. Compare the two eyes in each of the nine positions of gaze.',
+      run: function (t) { return { tx: keyf(t, [[0, 0], [1, 30], [2.8, 30], [3.8, 0], [4.4, 0], [5.4, -30], [6.8, -30], [7.8, 0], [8.4, 0]], 8.4) }; } },
+    { title: 'Cover, uncover, alternate', cond: 'et', side: 'R', look: 1, cap: 'Esotropia: the uncovered eye swings out to fix',
+      text: 'Cover one eye and watch the other. If it moves to take up fixation, the deviation is manifest. Alternate the cover to bring out the whole angle.',
+      run: function (t) { var u = t % 5; return { cover: u < 0.9 ? null : u < 2.2 ? 'R' : u < 3 ? null : u < 4.3 ? 'L' : null }; } },
+    { title: 'Tilt and turn the head', cond: 'cn4', side: 'R', look: 3, cap: 'Right fourth nerve palsy: larger on tilt to the right',
+      text: 'Tilt the head to each shoulder for the three-step test. Turn it with the doll’s head manoeuvre to see whether the reflex overcomes a gaze palsy.',
+      run: function (t) { return { roll: keyf(t, [[0, 0], [1, 30], [3.2, 30], [4.2, 0], [4.8, 0], [5.8, -30], [7.8, -30], [8.8, 0], [9.4, 0]], 9.4) }; } },
+    { title: 'Measure with prisms', cond: 'et', side: 'R', look: 2, cap: '',
+      text: 'Hold a prism of any power before either eye and turn its base in any direction. Repeat the cover test and add power until nothing moves.',
+      run: function (t) {
+        var u = t % 13, power = [0, 10, 20, 29][Math.min(3, Math.floor(u / 3.2))];
+        return { cover: Math.floor(u / 0.8) % 2 ? 'L' : 'R', prism: { R: { power: power, base: 180, label: power + 'Δ BO' } },
+          cap: 'Prism cover test: ' + (power ? power + 'Δ base out' : 'no prism yet') + (power === 29 ? ', no movement' : '') };
+      } },
+    { title: 'Ask what the patient sees', cond: 'cn6', side: 'L', look: 0, cap: 'Worth 4 dot glasses: red before the right eye, green before the left',
+      text: 'Patient’s view shows the double images and the Worth 4 dot test through red-green glasses. The Hess chart plots the field of each eye.',
+      run: function (t) { return { glasses: true, tx: keyf(t, [[0, 0], [1.2, -26], [3.2, -26], [4.4, 0], [6, 0]], 6) }; } },
+    { title: 'Two ways to practise', cond: 'normal', side: 'R', look: 4, cap: '',
+      text: 'Textbook shows each of 24 conditions with the findings beside the patient. Diagnose gives you an unknown patient, then scores your diagnosis, side and site.',
+      run: function (t) { return { tx: 18 * Math.sin(t * 0.6), ty: 8 * Math.sin(t * 0.9) }; } }
+  ];
+  var intro = { open: false, face: null, sim: null, step: 0, t: 0, cover: { R: 0, L: 0 }, cap: '' };
+  function introStep(i) {
+    var st = INTRO[i];
+    intro.step = i; intro.t = 0; intro.cover = { R: 0, L: 0 };
+    intro.sim = new E.Sim(C.byId[st.cond].build(st.side));
+    intro.face.setLook(CG.looks[st.look]);
+    $('#introStep').textContent = (i + 1) + ' of ' + INTRO.length;
+    $('#introTitle').textContent = st.title;
+    $('#introText').textContent = st.text;
+    $('#introDots').innerHTML = INTRO.map(function (x, n) { return '<i' + (n === i ? ' class="on"' : '') + '></i>'; }).join('');
+    $('#introBack').hidden = i === 0;
+    $('#introSkip').hidden = i === INTRO.length - 1;
+    $('#introNext').textContent = i === INTRO.length - 1 ? 'Start' : 'Next';
+    intro.cap = null;
+  }
+  function openIntro() {
+    if (!intro.face) { intro.face = new CG.Face($('#introCanvas')); intro.face.eyeLine = 0.45; }
+    $('#intro').hidden = false;
+    intro.open = true;
+    intro.face.resize();
+    introStep(0);
+  }
+  function closeIntro() {
+    $('#intro').hidden = true;
+    intro.open = false;
+    store.set('intro', true);
+    if (state.screen === 'home') hero.face.resize();
+  }
+  $('#introNext').addEventListener('click', function () { if (intro.step < INTRO.length - 1) introStep(intro.step + 1); else closeIntro(); });
+  $('#introBack').addEventListener('click', function () { if (intro.step > 0) introStep(intro.step - 1); });
+  $('#introSkip').addEventListener('click', closeIntro);
+  function introFrame(dt) {
+    var st = INTRO[intro.step];
+    intro.t = reduceMotion ? 1.6 : intro.t + dt;          // a still frame for viewers who ask for less motion
+    var a = st.run(intro.t), shifts = {}, k;
+    if (a.prism) for (k in a.prism) if (a.prism[k].power > 0) shifts[k] = E.prismShift(a.prism[k].power, a.prism[k].base);
+    var f = intro.sim.step(dt, { tx: a.tx || 0, ty: a.ty || 0, dist: 600, yaw: 0, pitch: 0, roll: a.roll || 0,
+      cover: a.cover || null, lidsLifted: false, prism: shifts });
+    ['R', 'L'].forEach(function (key) {
+      intro.cover[key] += clamp((a.cover === key ? 1 : 0) - intro.cover[key], -dt * 6, dt * 6);
+    });
+    intro.face.draw(f, { bg: stageBg, head: { yaw: 0, pitch: 0, roll: a.roll || 0 }, light: eyeLights(f.sol, shifts),
+      cover: intro.cover, seeThrough: true, prism: a.prism, glasses: a.glasses });
+    var cap = a.cap != null ? a.cap : st.cap;
+    if (cap !== intro.cap) { intro.cap = cap; $('#introCap').textContent = cap; }
+  }
+
+  // The fixation light as each eye receives it: a prism before an eye bends it toward the apex.
+  function eyeLights(sol, shifts) {
+    function one(k) { var p = shifts && shifts[k]; return { x: sol.ox + (p ? p.x : 0), y: sol.oy + (p ? p.y : 0) }; }
+    return { R: one('R'), L: one('L') };
+  }
+
   /* ---------- navigation ---------- */
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-go]');
     if (!b) return;
     var go = b.dataset.go;
     if (go === 'settings') openSettings();
+    else if (go === 'intro') openIntro();
     else if (go === 'textbook') show('picker');
     else if (go === 'diagnose') newCase();
     else show(go);
@@ -634,6 +849,7 @@
     var dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
     last = now;
     if (document.hidden) return;
+    if (intro.open) { introFrame(dt); return; }
     if (state.screen === 'home') { heroFrame(dt); return; }
     if (state.screen !== 'exam' || !state.sim) return;
 
@@ -650,7 +866,7 @@
 
     var frame = state.sim.step(dt, {
       tx: inp.tx, ty: inp.ty, dist: inp.dist, yaw: head.yaw, pitch: head.pitch, roll: head.roll,
-      vorX: -state.dollA.yaw, vorY: -state.dollA.pitch, cover: inp.cover, lidsLifted: inp.lids
+      vorX: -state.dollA.yaw, vorY: -state.dollA.pitch, cover: inp.cover, lidsLifted: inp.lids, prism: state.shifts
     });
     state.frame = frame;
     ['R', 'L'].forEach(function (k) {
@@ -658,23 +874,24 @@
       state.coverAnim[k] += clamp(want - state.coverAnim[k], -dt * 6, dt * 6);
     });
     face.draw(frame, {
-      bg: stageBg, head: head, light: { x: frame.sol.ox, y: frame.sol.oy },
-      cover: state.coverAnim, seeThrough: opts.seeThrough
+      bg: stageBg, head: head, light: eyeLights(frame.sol, state.shifts),
+      cover: state.coverAnim, seeThrough: opts.seeThrough, prism: state.prismDraw, glasses: state.w4d
     });
     updatePad();
     if (state.tab === 'view' && !$('#paneView').hidden) updateView(frame, now);
   }
 
   try {
-    var ro = new ResizeObserver(function () { face.resize(); hero.face.resize(); });
+    var ro = new ResizeObserver(function () { face.resize(); hero.face.resize(); if (intro.face) intro.face.resize(); });
     ro.observe(stage); ro.observe(hero.face.canvas);
   } catch (e) {
     window.addEventListener('resize', function () { face.resize(); hero.face.resize(); });
   }
 
   show('home');
+  if (!store.get('intro', false)) openIntro();     // first visit
   requestAnimationFrame(tick);
 
   // test hook
-  CG.app = { state: state, startExam: startExam, newCase: newCase, show: show, setTab: setTab };
+  CG.app = { state: state, startExam: startExam, newCase: newCase, show: show, setTab: setTab, intro: intro, openIntro: openIntro, closeIntro: closeIntro };
 })();

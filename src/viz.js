@@ -52,38 +52,59 @@
       '</svg>';
   }
 
-  /* What the patient sees: one bar of light per eye. Red is the right eye, green the left. */
+  /* What the patient sees. Two targets:
+       light — a bar of light, one image per eye (red is the right eye, green the left)
+       w4d   — the Worth 4 dot lights through red-green glasses: the right eye (red lens) sees the red
+               light and the white one as red; the left eye (green lens) sees the two green lights and
+               the white one as green. */
   function DiploView(el) {
-    var W = 360, H = 150, k = 6.2, s = '', d;
-    this.k = k; this.cx = W / 2; this.cy = H / 2;
+    var W = 360, H = 150, s = '', d;
+    this.cx = W / 2; this.cy = H / 2; this.mode = 'light';
+    function grid(cls, k) {
+      var g = '<g class="' + cls + '">';
+      for (d = -25; d <= 25; d += 5) if (Math.abs(d * k) < W / 2 - 6) g += '<line class="d-grid" x1="' + (W / 2 + d * k) + '" y1="6" x2="' + (W / 2 + d * k) + '" y2="' + (H - 6) + '"/>';
+      for (d = -10; d <= 10; d += 5) if (Math.abs(d * k) < H / 2 - 6) g += '<line class="d-grid" x1="6" y1="' + (H / 2 + d * k) + '" x2="' + (W - 6) + '" y2="' + (H / 2 + d * k) + '"/>';
+      return g + '</g>';
+    }
     s += '<svg class="diplo" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="The target as the patient sees it">';
     s += '<rect class="d-bg" x="0" y="0" width="' + W + '" height="' + H + '" rx="10"/>';
-    for (d = -25; d <= 25; d += 5) s += '<line class="d-grid" x1="' + (W / 2 + d * k) + '" y1="6" x2="' + (W / 2 + d * k) + '" y2="' + (H - 6) + '"/>';
-    for (d = -10; d <= 10; d += 5) s += '<line class="d-grid" x1="6" y1="' + (H / 2 + d * k) + '" x2="' + (W - 6) + '" y2="' + (H / 2 + d * k) + '"/>';
+    s += grid('d-g-light', 6.2) + grid('d-g-w4d', 9);
     s += '<text class="d-side" x="10" y="' + (H - 9) + '">patient’s left</text>';
     s += '<text class="d-side" x="' + (W - 10) + '" y="' + (H - 9) + '" text-anchor="end">patient’s right</text>';
     s += '<g class="d-img d-le"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
     s += '<g class="d-img d-re"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
     s += '<g class="d-img d-one"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
+    ['lLeft d-le', 'lRight d-le', 'lBot d-le', 'rTop d-re', 'rBot d-re', 'fBot d-one'].forEach(function (c) {
+      s += '<circle class="d-dot ' + c + '" r="6.5"/>';
+    });
     s += '</svg>';
     el.innerHTML = s;
-    this.gR = el.querySelector('.d-re');
-    this.gL = el.querySelector('.d-le');
-    this.gOne = el.querySelector('.d-one');
+    this.el = el;
+    this.gR = el.querySelector('g.d-re');
+    this.gL = el.querySelector('g.d-le');
+    this.gOne = el.querySelector('g.d-one');
+    this.dots = {};
+    var self = this;
+    ['lLeft', 'lRight', 'lBot', 'rTop', 'rBot', 'fBot'].forEach(function (n) { self.dots[n] = el.querySelector('.' + n); });
+    this.setMode('light');
   }
 
-  DiploView.prototype.update = function (frame, cfg) {
-    var sol = frame.sol, fixKey = sol.fix, f = frame.eyes[fixKey], self = this;
+  DiploView.prototype.setMode = function (mode) {
+    this.mode = mode;
+    this.k = mode === 'w4d' ? 9 : 6.2;
+    this.el.querySelector('.d-g-light').style.display = mode === 'w4d' ? 'none' : '';
+    this.el.querySelector('.d-g-w4d').style.display = mode === 'w4d' ? '' : 'none';
+  };
+
+  // Returns { state } — 'mono' (one eye sees), 'single', 'suppress' or 'double' — plus, for the
+  // Worth 4 dot target, how many lights of each colour the patient reports.
+  DiploView.prototype.update = function (frame, cfg, distCm) {
+    var sol = frame.sol, fixKey = sol.fix, f = frame.eyes[fixKey], self = this, k = this.k, n;
     function img(key) {
       var e = frame.eyes[key], sgn = key === 'R' ? 1 : -1, fs = fixKey === 'R' ? 1 : -1;
       return { x: -(e.errX - f.errX), y: -(e.errY - f.errY), rot: -sgn * e.t + fs * f.t };
     }
-    function place(g, im, on) {
-      g.style.display = on ? '' : 'none';
-      if (!on) return;
-      var x = Math.max(-26, Math.min(26, im.x)), y = Math.max(-10, Math.min(10, im.y));
-      g.setAttribute('transform', 'translate(' + f1(self.cx + x * self.k) + ' ' + f1(self.cy - y * self.k) + ') rotate(' + f1(im.rot) + ')');
-    }
+    function hide(el) { el.style.display = 'none'; }
     var R = img('R'), L = img('L');
     var seeR = frame.eyes.R.seeing, seeL = frame.eyes.L.seeing;
     var sep = Math.abs(R.x - L.x) + Math.abs(R.y - L.y), tilt = Math.abs(R.rot - L.rot);
@@ -92,13 +113,47 @@
     else if (sep < 0.5 && tilt < 2) state = 'single';
     else if (cfg.suppression) state = 'suppress';
     else state = 'double';
-    if (state === 'double') {
-      place(this.gR, R, true); place(this.gL, L, true); place(this.gOne, R, false);
-    } else {
-      place(this.gR, R, false); place(this.gL, L, false);
-      place(this.gOne, { x: 0, y: 0, rot: 0 }, seeR || seeL);
+    var showR = state === 'double' || (state === 'mono' && seeR) || (state === 'suppress' && fixKey === 'R');
+    var showL = state === 'double' || (state === 'mono' && seeL) || (state === 'suppress' && fixKey === 'L');
+    var zero = { x: 0, y: 0, rot: 0 };
+    if (state !== 'double') { R = zero; L = zero; }
+
+    if (this.mode === 'light') {
+      for (n in this.dots) hide(this.dots[n]);
+      var bar = function (g, im, on) {
+        g.style.display = on ? '' : 'none';
+        if (!on) return;
+        var x = Math.max(-26, Math.min(26, im.x)), y = Math.max(-10, Math.min(10, im.y));
+        g.setAttribute('transform', 'translate(' + f1(self.cx + x * k) + ' ' + f1(self.cy - y * k) + ') rotate(' + f1(im.rot) + ')');
+      };
+      bar(this.gR, R, state === 'double');
+      bar(this.gL, L, state === 'double');
+      bar(this.gOne, zero, state !== 'double' && (seeR || seeL));
+      return { state: state };
     }
-    return state;
+
+    hide(this.gR); hide(this.gL); hide(this.gOne);
+    var h = Math.max(1.3, Math.min(3.2, 3 * 33 / (distCm || 600)));       // half the height of the diamond, degrees
+    var limX = 19 - h, limY = 7.4 - h;
+    var rad = f1(Math.max(3.4, Math.min(6.5, h * k * 0.42)));          // smaller lights for the distance target
+    var dot = function (name, im, px, py, on) {
+      var el = self.dots[name];
+      el.style.display = on ? '' : 'none';
+      if (!on) return;
+      el.setAttribute('r', rad);
+      var a = -im.rot * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+      var x = Math.max(-limX, Math.min(limX, im.x)) + px * c - py * sn;
+      var y = Math.max(-limY, Math.min(limY, im.y)) + px * sn + py * c;
+      el.setAttribute('cx', f1(self.cx + x * k)); el.setAttribute('cy', f1(self.cy - y * k));
+    };
+    var fused = state === 'single';
+    dot('rTop', R, 0, h, showR || fused);
+    dot('rBot', R, 0, -h, showR && !fused);
+    dot('lLeft', L, -h, 0, showL || fused);
+    dot('lRight', L, h, 0, showL || fused);
+    dot('lBot', L, 0, -h, showL && !fused);
+    dot('fBot', zero, 0, -h, fused);
+    return { state: state, red: fused ? 1 : (showR ? 2 : 0), green: fused ? 2 : (showL ? 3 : 0), lights: fused ? 4 : (showR ? 2 : 0) + (showL ? 3 : 0) };
   };
 
   /* Readout of the current deviation, the way a prism cover measurement would report it. */
