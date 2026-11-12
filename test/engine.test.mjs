@@ -298,4 +298,33 @@ check('Every condition builds for both sides and solves without NaN', () => {
   }
 });
 
+check('Realistic size: same pattern, smaller angles, posture still fuses', () => {
+  const soft = (id, side) => E.soften(cfgOf(id, side), 0.65);
+  const vi = soft('cn6', 'R'), viFull = cfgOf('cn6', 'R');
+  const p = at(vi, { dissociate: true }).dev.eso;
+  assert.ok(p > 3 && p < at(viFull, { dissociate: true }).dev.eso - 2, 'smaller primary eso: ' + p);
+  assert.ok(at(vi, { tx: 30 }).dev.eso > p + 4, 'still incomitant');
+  assert.ok(at(vi, { yaw: vi.posture.yaw }).fused, 'face turn fuses');
+  const iv = soft('cn4', 'L');
+  const hyper = (o) => -at(iv, Object.assign({ dissociate: true }, o)).dev.rHyper;
+  assert.ok(hyper({}) > 1 && hyper({ roll: -30 }) > hyper({}) + 1 && hyper({ roll: 30 }) < hyper({}) - 1, 'three-step still positive');
+  assert.ok(at(iv, iv.posture).fused, 'tilt fuses');
+  const ino = soft('ino', 'R');
+  const lag = at(ino, { tx: -30 }).eyes.R.a;
+  assert.ok(lag < -12 && lag > -27, 'partial adduction: ' + lag);
+  const par = soft('parinaud');
+  const up = at(par, { ty: 30 }).eyes.R.y;
+  assert.ok(up > 10 && up < 24, 'partial upgaze: ' + up);
+  const iii = soft('cn3p', 'R');
+  assert.ok(iii.eyes.R.pupil > 5.5 && iii.eyes.R.lid.ptosis < 0.7 && at(iii, { lidsLifted: false }).can.R, 'partial third');
+  for (const c of C.list) for (const side of ['R', 'L']) {
+    const cfg = E.soften(c.build(side), 0.65);
+    for (const tx of [-40, 0, 40]) for (const ty of [-32, 0, 32]) for (const cover of [null, 'R']) {
+      const s = at(cfg, { tx, ty, cover, roll: 30 });
+      assert.ok(Number.isFinite(s.eyes.R.x + s.eyes.R.y + s.eyes.L.x + s.eyes.L.y), c.id);
+    }
+    E.hess(cfg);
+  }
+});
+
 console.log(`${passed} checks passed` + (process.exitCode ? ', some FAILED' : ''));

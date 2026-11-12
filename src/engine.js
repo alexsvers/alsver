@@ -380,6 +380,40 @@
     return out;
   };
 
+  /* ---------- deviation size ---------- */
+
+  // Scales every deficit in a built config toward normal: k = 1 leaves it as written,
+  // smaller k gives partial palsies and smaller angles. Head posture is kept, because a
+  // smaller deviation still needs the same posture to be fused.
+  function soften(cfg, k) {
+    function to1(g) { return 1 - (1 - g) * k; }
+    function toN(norm, v) { return v == null ? v : (typeof v === 'number' ? norm - (norm - v) * k : v.map(function (x) { return norm - (norm - x) * k; })); }
+    var root = Math.sqrt(k);
+    ['R', 'L'].forEach(function (key) {
+      var e = cfg.eyes[key], m;
+      for (m in e.s) e.s[m] = to1(e.s[m]);
+      if (e.fatigable) for (m in e.fatigable) e.fatigable[m] *= k;
+      if (e.ino != null) e.ino = to1(e.ino);
+      e.vOffset *= k; e.tOffset *= k; e.shoot *= k; e.retract *= root;
+      if (e.limits) {
+        e.limits = {
+          ab: toN(K.RANGE.ab, e.limits.ab), ad: toN(K.RANGE.ad, e.limits.ad),
+          up: toN(K.RANGE.up, e.limits.up), down: toN(K.RANGE.down, e.limits.down),
+          soft: e.limits.soft
+        };
+      }
+      e.lid.ptosis *= k; e.lid.fatigue *= root; e.lid.retraction *= root; e.lid.lower *= root; e.lid.lag *= root;
+      e.browLift *= k;
+      e.pupil = 3.8 + (e.pupil - 3.8) * k;
+      e.vmax = { ab: toN(520, e.vmax.ab), ad: toN(520, e.vmax.ad), up: toN(480, e.vmax.up), down: toN(480, e.vmax.down) };
+    });
+    cfg.verg.bias *= k; cfg.verg.gain = to1(cfg.verg.gain); cfg.verg.max = 40 - (40 - cfg.verg.max) * k;
+    if (cfg.supra) { cfg.supra.up = to1(cfg.supra.up); cfg.supra.down = to1(cfg.supra.down); cfg.supra.right = to1(cfg.supra.right); cfg.supra.left = to1(cfg.supra.left); }
+    if (cfg.nuclear) { cfg.nuclear.right = to1(cfg.nuclear.right); cfg.nuclear.left = to1(cfg.nuclear.left); cfg.nuclear.bias *= k; }
+    cfg.nystagmus.forEach(function (n) { n.amp *= root; });
+    return cfg;
+  }
+
   /* ---------- derived charts ---------- */
 
   var HESS_INNER = [[-15, 15], [0, 15], [15, 15], [15, 0], [15, -15], [0, -15], [-15, -15], [-15, 0]];
@@ -403,6 +437,6 @@
 
   CG.engine = {
     K: K, makeEye: makeEye, makeConfig: makeConfig, eyePosition: eyePosition, solve: solve,
-    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, prism: prism, clamp: clamp, lerp: lerp
+    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, soften: soften, prism: prism, clamp: clamp, lerp: lerp
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

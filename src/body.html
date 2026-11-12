@@ -13,6 +13,7 @@
     <symbol id="i-lid" viewBox="0 0 24 24"><path d="M3 17c3-4.500 6-6.500 9-6.500s6 2 9 6.500"/><circle cx="12" cy="16.500" r="2.300"/><path d="M12 7.500V2.500M9.500 5L12 2.500 14.500 5"/></symbol>
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12c3-5 6.500-7 10-7s7 2 10 7c-3 5-6.500 7-10 7s-7-2-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="17" height="17" rx="2"/><path d="M9.200 3.500v17M14.800 3.500v17M3.500 9.200h17M3.500 14.800h17"/></symbol>
+    <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h8M18 7h2M4 17h2M12 17h8"/><circle cx="15" cy="7" r="2.6"/><circle cx="9" cy="17" r="2.6"/></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.500 18.500h5M10.500 21.500h3M12 3a6 6 0 0 0-3.600 10.800c.600.500 1 1.200 1.100 2.200h5c.100-1 .500-1.700 1.100-2.200A6 6 0 0 0 12 3z"/></symbol>
   </defs>
 </svg>
@@ -43,6 +44,11 @@
           <span><b>Progress</b><small id="homeStats">No cases yet</small></span>
           <svg class="chev"><use href="#i-next"/></svg>
         </button>
+        <button class="menu-item" data-go="settings">
+          <svg class="ic"><use href="#i-set"/></svg>
+          <span><b>Settings</b><small id="homeSettings">Deviation size and display</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
         <button class="menu-item" data-go="about">
           <svg class="ic"><use href="#i-info"/></svg>
           <span><b>Information</b><small>How to examine, and what the model leaves out</small></span>
@@ -62,7 +68,7 @@
 
   <section class="screen exam" id="exam" hidden>
     <div class="stage-wrap" id="stageWrap">
-      <canvas id="stage" aria-label="Patient's face. Drag to move the fixation light."></canvas>
+      <canvas id="stage" aria-label="The patient's face"></canvas>
       <div class="stage-top">
         <button class="fab" id="btnClose" aria-label="Close"><svg><use href="#i-close"/></svg></button>
         <span class="mark mark-r" title="Patient's right eye">R</span>
@@ -73,34 +79,44 @@
           <button class="fab top-tab" data-tab="view" aria-label="Patient's view"><svg><use href="#i-eye"/></svg></button>
           <button class="fab top-tab" data-tab="hess" aria-label="Hess chart"><svg><use href="#i-grid"/></svg></button>
         </div>
+        <button class="fab" id="btnSettings" aria-label="Settings"><svg><use href="#i-set"/></svg></button>
       </div>
-      <div class="stage-bottom">
-        <div class="chips" id="chips" aria-live="polite"></div>
+      <div class="chips" id="chips" aria-live="polite"></div>
+      <div class="stage-bottom" id="stageBottom">
         <div class="subbar" id="subHead" hidden>
           <button class="seg" data-head="tiltR">Tilt R</button>
           <button class="seg" data-head="straight">Straight</button>
           <button class="seg" data-head="tiltL">Tilt L</button>
           <button class="seg" data-head="doll">Doll’s head</button>
           <button class="seg" data-head="habit" id="segHabit">Habitual</button>
+          <button class="seg seg-x" data-close="1" aria-label="Close head options"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="subbar" id="subNear" hidden>
           <button class="seg" data-dist="600">6 m</button>
           <button class="seg" data-dist="33">33 cm</button>
           <input type="range" id="distRange" min="0" max="100" value="0" step="1" aria-label="Target distance, far to near">
           <output id="distOut" for="distRange">6 m</output>
+          <button class="seg seg-x" data-close="1" aria-label="Close distance"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
       </div>
     </div>
 
-    <div class="dock" id="dock">
-      <div class="dock-l">
-        <button class="tool tool-re" id="btnCoverR" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover R</span></button>
-        <button class="tool" id="btnHead" aria-pressed="false"><span class="ic"><svg><use href="#i-head"/></svg></span><span class="lb">Head</span></button>
+    <div class="controls" id="controls">
+      <button class="tool cover tool-re" id="btnCoverR" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover R</span></button>
+      <div class="pad" id="pad" tabindex="0" role="group" aria-label="Gaze pad. Drag to move the fixation light, or use the arrow keys.">
+        <span class="pad-cap" id="padCap"></span>
+        <span class="pad-side pad-r" aria-hidden="true">R</span>
+        <span class="pad-side pad-l" aria-hidden="true">L</span>
+        <i class="ring" style="left:15%;top:20%"></i><i class="ring" style="left:50%;top:20%"></i><i class="ring" style="left:85%;top:20%"></i>
+        <i class="ring" style="left:15%;top:50%"></i><i class="ring" style="left:50%;top:50%"></i><i class="ring" style="left:85%;top:50%"></i>
+        <i class="ring" style="left:15%;top:80%"></i><i class="ring" style="left:50%;top:80%"></i><i class="ring" style="left:85%;top:80%"></i>
+        <i class="pad-dot" id="padDot"></i>
       </div>
-      <div class="dock-r">
-        <button class="tool" id="btnNear" aria-pressed="false"><span class="ic"><svg><use href="#i-near"/></svg></span><span class="lb">Distance</span></button>
-        <button class="tool" id="btnLids" aria-pressed="false"><span class="ic"><svg><use href="#i-lid"/></svg></span><span class="lb">Lift lids</span></button>
-        <button class="tool tool-le" id="btnCoverL" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover L</span></button>
+      <button class="tool cover tool-le" id="btnCoverL" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover L</span></button>
+      <div class="minor">
+        <button class="tool" id="btnHead" aria-pressed="false"><span class="ic"><svg><use href="#i-head"/></svg></span><span class="lb" id="lbHead">Head</span></button>
+        <button class="tool" id="btnNear" aria-pressed="false"><span class="ic"><svg><use href="#i-near"/></svg></span><span class="lb" id="lbNear">Distance</span></button>
+        <button class="tool" id="btnLids" aria-pressed="false"><span class="ic"><svg><use href="#i-lid"/></svg></span><span class="lb" id="lbLids">Lift lids</span></button>
       </div>
     </div>
 
@@ -122,10 +138,6 @@
           <div><dt>Torsion</dt><dd id="roT">None</dd></div>
         </dl>
         <p class="note">The readout is the angle between the eyes right now, for this target, head position and cover. Cover an eye to measure a latent deviation.</p>
-        <div class="opts">
-          <label><input type="checkbox" id="optSee"> See-through occluder</label>
-          <label><input type="checkbox" id="optLabels"> Show the yoke muscles at each gaze point</label>
-        </div>
       </div>
       <div class="pane" id="paneHess" hidden></div>
     </aside>
@@ -138,6 +150,27 @@
       </header>
       <div class="page-body wrap" id="sheetBody"></div>
     </section>
+  </section>
+
+  <section class="sheet" id="settings" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" id="settingsClose" aria-label="Close settings"><svg><use href="#i-close"/></svg></button>
+      <h2>Settings</h2>
+    </header>
+    <div class="page-body wrap">
+      <div class="set-group">
+        <p class="label">Deviation size</p>
+        <div class="choice" role="radiogroup" aria-label="Deviation size">
+          <button class="choice-item" role="radio" data-size="clear" aria-checked="true"><b>Clear</b><small>Larger angles and denser palsies. Easy to see on a phone.</small></button>
+          <button class="choice-item" role="radio" data-size="real" aria-checked="false"><b>Realistic</b><small>Smaller angles and partial palsies, closer to clinic. Harder to diagnose.</small></button>
+        </div>
+      </div>
+      <div class="set-group">
+        <p class="label">Display</p>
+        <label class="switch"><input type="checkbox" id="optSee"><span>See-through occluder<small>Watch the covered eye drift behind the cover.</small></span></label>
+        <label class="switch"><input type="checkbox" id="optLabels"><span>Name the yoke muscles on the gaze pad<small>Shows which pair of muscles each position tests.</small></span></label>
+      </div>
+    </div>
   </section>
 
   <section class="screen page" id="progress" hidden>
@@ -160,14 +193,17 @@
 
       <h3>Tools</h3>
       <dl class="tools">
-        <div><dt>Fixation light</dt><dd>Drag anywhere on the face and the patient follows: pursuit. Tap somewhere else and the patient makes a saccade. Release near one of the nine rings and the light snaps to that position of gaze.</dd></div>
-        <div><dt>Cover R, Cover L</dt><dd>Tap to cover an eye, tap again to uncover. Go straight from one eye to the other for an alternate cover test. The occluder is see-through by default so that you can watch the eye behind it; switch that off under Patient’s view.</dd></div>
-        <div><dt>Head</dt><dd>Tilt the head to either shoulder for the Bielschowsky test, and keep it tilted while you cover. Doll’s head lets you drag to turn the head while the patient fixes straight ahead. Habitual returns the patient to the head posture they walked in with.</dd></div>
+        <div><dt>Gaze pad</dt><dd>The dark pad between the two cover buttons moves the fixation light, so your finger never hides the eyes. Drag and the patient follows: pursuit. Tap somewhere else and the patient makes a saccade. Release near one of the nine rings and the light snaps to that position of gaze. Like the face, the pad is mirrored: its left side is the patient’s right.</dd></div>
+        <div><dt>Cover R, Cover L</dt><dd>Tap to cover an eye, tap again to uncover. Go straight from one eye to the other for an alternate cover test. The occluder is see-through by default so that you can watch the eye behind it.</dd></div>
+        <div><dt>Head</dt><dd>Tilt the head to either shoulder for the Bielschowsky test, and keep it tilted while you cover. With Doll’s head on, the gaze pad turns the head instead while the patient fixes straight ahead. Habitual returns the patient to the head posture they walked in with.</dd></div>
         <div><dt>Distance</dt><dd>Move the target from 6 m to 33 cm, then on toward the nose to find the near point of convergence.</dd></div>
         <div><dt>Lift lids</dt><dd>Holds both upper lids up, as you would with your thumb, when ptosis hides the eye.</dd></div>
         <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres.</dd></div>
         <div><dt>Hess chart</dt><dd>Plots each eye’s field while the other eye fixes. The smaller field belongs to the limited eye; the larger shows overaction of its yoke muscle.</dd></div>
       </dl>
+
+      <h3>Deviation size</h3>
+      <p>Settings offers two sizes. <b>Clear</b> uses larger angles and denser palsies than average so that they show on a phone. <b>Realistic</b> uses smaller angles and partial palsies, closer to what walks into clinic, and is harder to diagnose. Turn the phone sideways for a closer view of the eyes.</p>
 
       <h3>A routine that works</h3>
       <ol>
@@ -186,7 +222,7 @@
 
       <h3>What the model leaves out</h3>
       <p>This is a teaching simulation, not a clinical tool. Each eye has six muscles with reciprocal innervation, Hering’s law links the two eyes, and mechanical restrictions are elastic limits. That is enough to reproduce primary and secondary deviation, incomitance, the three-step test and the difference between supranuclear, nuclear and peripheral lesions.</p>
-      <p>It does not model pupillary light reactions, forced duction testing, Bell phenomenon, sensory adaptations other than suppression, or the many atypical and partial presentations you will meet in real patients. Angles are deliberately a little larger than average so that they are visible on a phone.</p>
+      <p>It does not model pupillary light reactions, forced duction testing, Bell phenomenon, sensory adaptations other than suppression, or the many atypical and partial presentations you will meet in real patients.</p>
     </div>
   </section>
 

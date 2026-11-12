@@ -19,7 +19,8 @@
   };
   function freshStats() { return { cases: 0, points: 0, max: 0, right: 0, streak: 0, best: 0, per: {} }; }
   var stats = Object.assign(freshStats(), store.get('stats', null) || {});
-  var opts = Object.assign({ seeThrough: true, labels: false }, store.get('opts', null) || {});
+  var opts = Object.assign({ seeThrough: true, labels: false, size: 'clear' }, store.get('opts', null) || {});
+  var REAL_K = 0.65;   // how far 'Realistic' scales every deficit toward normal
 
   /* ---------- theme colour for the canvas backdrop ---------- */
   var stageBg = '#C7D5D9';
@@ -43,8 +44,17 @@
     coverAnim: { R: 0, L: 0 }, lastCase: null
   };
 
-  var stage = $('#stage');
+  var stage = $('#stage'), pad = $('#pad'), padDot = $('#padDot'), padKey = '', padCap = '';
+  // The nine positions of gaze, with the yoke pair each of the six cardinal positions tests.
+  var YOKES = [
+    { tx: 30, ty: 0, r: 'LR', l: 'MR' }, { tx: -30, ty: 0, r: 'MR', l: 'LR' },
+    { tx: 30, ty: 25, r: 'SR', l: 'IO' }, { tx: -30, ty: 25, r: 'IO', l: 'SR' },
+    { tx: 30, ty: -25, r: 'IR', l: 'SO' }, { tx: -30, ty: -25, r: 'SO', l: 'IR' },
+    { tx: 0, ty: 25 }, { tx: 0, ty: -25 }, { tx: 0, ty: 0 }
+  ];
   var face = new CG.Face(stage);
+  face.eyeLine = 0.56;   // leaves room for the buttons along the top of the stage
+  face.resize();
   var diplo = new V.DiploView($('#diplo'));
   var hero = { face: new CG.Face($('#heroCanvas')), sim: new E.Sim(C.byId.normal.build('R')), tx: 0, ty: 0, moved: -1e9 };
   hero.face.setLook(CG.looks[4]);
@@ -62,6 +72,7 @@
   /* ---------- home ---------- */
   function updateHome() {
     var s = stats;
+    $('#homeSettings').textContent = 'Deviation size: ' + (opts.size === 'real' ? 'realistic' : 'clear');
     $('#homeStats').textContent = s.cases
       ? s.cases + (s.cases === 1 ? ' case, ' : ' cases, ') + Math.round(100 * s.right / s.cases) + '% correct, streak ' + s.streak
       : 'No cases yet';
@@ -78,7 +89,7 @@
       else { var t = now / 1000; tx = 24 * Math.sin(t * 0.55); ty = 11 * Math.sin(t * 0.83 + 1); }
     }
     var f = hero.sim.step(dt, { tx: tx, ty: ty, dist: 600, yaw: 0, pitch: 0, roll: 0, cover: null, lidsLifted: false });
-    hero.face.draw(f, { bg: stageBg, head: ZERO, light: { x: f.sol.ox, y: f.sol.oy }, target: { show: false }, guide: { show: false } });
+    hero.face.draw(f, { bg: stageBg, head: ZERO, light: { x: f.sol.ox, y: f.sol.oy } });
   }
 
   /* ---------- condition picker ---------- */
@@ -115,7 +126,7 @@
 
   function loadPatient(cond, side) {
     state.cond = cond; state.side = side;
-    state.cfg = cond.build(side);
+    state.cfg = opts.size === 'real' ? E.soften(cond.build(side), REAL_K) : cond.build(side);
     state.sim = new E.Sim(state.cfg);
     var hp = hasPosture(state.cfg), p = state.cfg.posture;
     state.input = { tx: 0, ty: 0, dist: 600, cover: null, lids: false };
@@ -151,7 +162,7 @@
     pressed('#btnCoverR', inp.cover === 'R');
     pressed('#btnCoverL', inp.cover === 'L');
     pressed('#btnLids', inp.lids);
-    pressed('#btnHead', !$('#subHead').hidden || hs.tilt !== 0 || hs.doll);
+    pressed('#btnHead', !$('#subHead').hidden || hs.tilt !== 0 || hs.doll || (hs.habitual && hasPosture(cfg)));
     pressed('#btnNear', !$('#subNear').hidden || inp.dist < 500);
     $$('#subHead .seg').forEach(function (b) {
       var k = b.dataset.head;
@@ -162,18 +173,16 @@
     $$('#subNear .seg').forEach(function (b) { pressed(b, Math.abs(inp.dist - Number(b.dataset.dist)) < 1); });
     $('#distOut').textContent = fmtDist(inp.dist);
 
-    var chips = [];
-    if (hs.habitual && hasPosture(cfg)) chips.push('Habitual posture: ' + postureText(cfg.posture));
-    if (hs.tilt) chips.push('Head tilted to the ' + (hs.tilt > 0 ? 'right' : 'left') + ' shoulder');
-    if (hs.doll) {
-      var dy = Math.round(hs.dollYaw), dp = Math.round(hs.dollPitch), turn = [];
-      if (Math.abs(dy) >= 3) turn.push('turned ' + (dy > 0 ? 'right ' : 'left ') + Math.abs(dy) + '°');
-      if (Math.abs(dp) >= 3) turn.push('chin ' + (dp > 0 ? 'up ' : 'down ') + Math.abs(dp) + '°');
-      chips.push('Doll’s head: ' + (turn.length ? turn.join(', ') : 'drag to turn the head'));
-    }
-    if (inp.dist < 500) chips.push('Target at ' + fmtDist(inp.dist));
-    if (inp.lids) chips.push('Lids lifted');
-    $('#chips').innerHTML = chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('');
+    $('#lbHead').textContent = hs.doll ? 'Doll’s head' : hs.tilt ? (hs.tilt > 0 ? 'Tilt R' : 'Tilt L') :
+      (hs.habitual && hasPosture(cfg) ? 'Habitual' : 'Head');
+    $('#lbNear').textContent = inp.dist < 500 ? fmtDist(inp.dist) : 'Distance';
+    $('#lbLids').textContent = inp.lids ? 'Lids up' : 'Lift lids';
+    $('#chips').innerHTML = hs.habitual && hasPosture(cfg)
+      ? '<span class="chip">' + esc('Habitual posture: ' + postureText(cfg.posture)) + '</span>' : '';
+    $('#exam').classList.toggle('sub-open', !$('#subHead').hidden || !$('#subNear').hidden);
+    pad.classList.toggle('is-head', hs.doll);
+    stage.style.cursor = hs.doll ? 'grab' : 'default';
+    padKey = '';
   }
 
   function setTab(tab, open) {
@@ -219,7 +228,11 @@
     } else if (k === 'habit') {
       hs.habitual = true; hs.tilt = 0; hs.doll = false; hs.dollYaw = 0; hs.dollPitch = 0;
     }
+    $('#subHead').hidden = true;   // get the bar out of the way so the result is visible
     updateChrome();
+  });
+  $$('[data-close]').forEach(function (b) {
+    b.addEventListener('click', function () { $('#subHead').hidden = true; $('#subNear').hidden = true; updateChrome(); });
   });
   $('#subNear').addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-dist]');
@@ -233,41 +246,93 @@
     updateChrome();
   });
 
-  // The fixation light: drag for pursuit, tap elsewhere for a saccade. In doll's head mode a drag turns the head.
-  var drag = null;
-  function stagePoint(ev) { var r = stage.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
-  function setTarget(pt) { var a = face.screenToAngle(pt.x, pt.y); state.input.tx = a.tx; state.input.ty = a.ty; }
-  stage.addEventListener('pointerdown', function (ev) {
+  // The gaze pad: drag for pursuit, tap elsewhere for a saccade. Its left side is the patient's right,
+  // like the face. In doll's head mode the pad turns the head instead.
+  function toFrac(a, a1, a2, f1, f2) {
+    var m = Math.abs(a), sg = a < 0 ? -1 : 1;
+    return sg * (m <= a1 ? m / a1 * f1 : f1 + (Math.min(m, a2) - a1) / (a2 - a1) * (f2 - f1));
+  }
+  function fromFrac(f, a1, a2, f1, f2) {
+    var m = Math.abs(f), sg = f < 0 ? -1 : 1;
+    return sg * (m <= f1 ? m / f1 * a1 : Math.min(a2, a1 + (m - f1) / (f2 - f1) * (a2 - a1)));
+  }
+  var padDrag = null;
+  function padApply(ev) {
+    var r = pad.getBoundingClientRect();
+    var tx = fromFrac(0.5 - (ev.clientX - r.left) / r.width, 30, 45, 0.35, 0.47);
+    var ty = fromFrac(0.5 - (ev.clientY - r.top) / r.height, 25, 35, 0.30, 0.44);
+    var hs = state.headSel;
+    if (hs.doll) { hs.dollYaw = clamp(tx, -32, 32); hs.dollPitch = clamp(ty, -25, 25); }
+    else { state.input.tx = tx; state.input.ty = ty; }
+  }
+  pad.addEventListener('pointerdown', function (ev) {
     if (ev.button > 0 || !state.sim) return;
-    try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
-    var pt = stagePoint(ev);
-    drag = { id: ev.pointerId, x0: pt.x, y0: pt.y, yaw0: state.headSel.dollYaw, pitch0: state.headSel.dollPitch };
-    if (!state.headSel.doll) setTarget(pt);
+    try { pad.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    padDrag = ev.pointerId;
+    padApply(ev);
     ev.preventDefault();
   });
-  stage.addEventListener('pointermove', function (ev) {
-    if (!drag || ev.pointerId !== drag.id) return;
-    var pt = stagePoint(ev), hs = state.headSel;
-    if (hs.doll) {
-      hs.dollYaw = clamp(drag.yaw0 - (pt.x - drag.x0) * 0.3, -32, 32);
-      hs.dollPitch = clamp(drag.pitch0 - (pt.y - drag.y0) * 0.3, -25, 25);
-    } else setTarget(pt);
-  });
-  function endDrag(ev) {
-    if (!drag || ev.pointerId !== drag.id) return;
-    drag = null;
-    if (state.headSel.doll) { updateChrome(); return; }
+  pad.addEventListener('pointermove', function (ev) { if (padDrag === ev.pointerId) padApply(ev); });
+  function padEnd(ev) {
+    if (padDrag !== ev.pointerId) return;
+    padDrag = null;
+    if (state.headSel.doll) return;
     var inp = state.input, best = null, bd = 5.5;
-    CG.yokes.forEach(function (y) {
+    YOKES.forEach(function (y) {
       var d = Math.abs(y.tx - inp.tx) + Math.abs(y.ty - inp.ty);
       if (d < bd) { bd = d; best = y; }
     });
     if (best) { inp.tx = best.tx; inp.ty = best.ty; }
   }
+  pad.addEventListener('pointerup', padEnd);
+  pad.addEventListener('pointercancel', padEnd);
+
+  function updatePad() {
+    var hs = state.headSel, inp = state.input;
+    var ax = hs.doll ? hs.dollYaw : inp.tx, ay = hs.doll ? hs.dollPitch : inp.ty;
+    var near = hs.doll ? 0 : clamp(sliderFromDist(inp.dist) / 100, 0, 1);
+    var key = ax.toFixed(1) + '|' + ay.toFixed(1) + '|' + near.toFixed(2) + '|' + opts.labels;
+    if (key === padKey) return;
+    padKey = key;
+    padDot.style.left = (50 - toFrac(ax, 30, 45, 0.35, 0.47) * 100).toFixed(2) + '%';
+    padDot.style.top = (50 - toFrac(ay, 25, 35, 0.30, 0.44) * 100).toFixed(2) + '%';
+    padDot.style.transform = 'scale(' + (1 + 0.7 * near).toFixed(2) + ')';
+    var cap = '';
+    if (hs.doll) {
+      var bits = [];
+      if (Math.abs(ax) >= 3) bits.push((ax > 0 ? 'R ' : 'L ') + Math.round(Math.abs(ax)) + '°');
+      if (Math.abs(ay) >= 3) bits.push('chin ' + (ay > 0 ? 'up ' : 'down ') + Math.round(Math.abs(ay)) + '°');
+      cap = 'Head' + (bits.length ? ' · ' + esc(bits.join(', ')) : ': drag to turn');
+    } else if (opts.labels) {
+      var best = null, bd = 13;
+      YOKES.forEach(function (y) {
+        var d = Math.abs(y.tx - ax) + Math.abs(y.ty - ay);
+        if (y.r && d < bd) { bd = d; best = y; }
+      });
+      if (best) cap = '<span class="y-r">R ' + best.r + '</span><span class="y-l">L ' + best.l + '</span>';
+    }
+    if (cap !== padCap) { padCap = cap; $('#padCap').innerHTML = cap; }
+  }
+
+  // Dragging the face itself turns the head, in doll's head mode only.
+  var drag = null;
+  stage.addEventListener('pointerdown', function (ev) {
+    if (ev.button > 0 || !state.sim || !state.headSel.doll) return;
+    try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    drag = { id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, yaw0: state.headSel.dollYaw, pitch0: state.headSel.dollPitch };
+    ev.preventDefault();
+  });
+  stage.addEventListener('pointermove', function (ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    var hs = state.headSel;
+    hs.dollYaw = clamp(drag.yaw0 - (ev.clientX - drag.x0) * 0.3, -32, 32);
+    hs.dollPitch = clamp(drag.pitch0 - (ev.clientY - drag.y0) * 0.3, -25, 25);
+  });
+  function endDrag(ev) { if (drag && ev.pointerId === drag.id) drag = null; }
   stage.addEventListener('pointerup', endDrag);
   stage.addEventListener('pointercancel', endDrag);
   document.addEventListener('keydown', function (ev) {
-    if (state.screen !== 'exam' || !$('#sheet').hidden || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+    if (state.screen !== 'exam' || !$('#sheet').hidden || !$('#settings').hidden || state.headSel.doll || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
     var d = { ArrowLeft: [5, 0], ArrowRight: [-5, 0], ArrowUp: [0, 5], ArrowDown: [0, -5] }[ev.key];
     if (!d) return;
     state.input.tx = clamp(state.input.tx + d[0], -40, 40);
@@ -286,6 +351,7 @@
     }
     h += '<h3>' + esc(c.name) + '</h3>';
     h += '<p class="summary">' + f(c.summary) + '</p>';
+    if (opts.size === 'real') h += '<p class="note">Deviation size is set to Realistic: expect a partial, milder version of the signs below.</p>';
     h += '<p class="label">What to find</p><ul class="findings">' +
       c.signs.map(function (s) { return '<li>' + f(s) + '</li>'; }).join('') + '</ul>';
     h += '<p class="label">Where and why</p><p>' + f(c.localise) + '</p>';
@@ -382,10 +448,33 @@
     $('#roH').textContent = d.h; $('#roV').textContent = d.v; $('#roT').textContent = d.t;
   }
 
-  $('#optSee').checked = opts.seeThrough;
-  $('#optLabels').checked = opts.labels;
+  /* ---------- settings ---------- */
+  var sizeChanged = false;
+  function renderSettings() {
+    $$('[data-size]').forEach(function (b) { b.setAttribute('aria-checked', b.dataset.size === opts.size ? 'true' : 'false'); });
+    $('#optSee').checked = opts.seeThrough;
+    $('#optLabels').checked = opts.labels;
+  }
+  function openSettings() { sizeChanged = false; renderSettings(); $('#settings').hidden = false; }
+  $('#settings').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-size]');
+    if (!b || b.dataset.size === opts.size) return;
+    opts.size = b.dataset.size; sizeChanged = true;
+    store.set('opts', opts); renderSettings();
+  });
   $('#optSee').addEventListener('change', function () { opts.seeThrough = this.checked; store.set('opts', opts); });
   $('#optLabels').addEventListener('change', function () { opts.labels = this.checked; store.set('opts', opts); });
+  $('#settingsClose').addEventListener('click', function () {
+    $('#settings').hidden = true;
+    if (state.screen === 'home') updateHome();
+    if (state.screen === 'exam' && state.sim && sizeChanged) {     // same patient, rebuilt at the new size
+      loadPatient(state.cond, state.side);
+      updateChrome();
+      setTab(state.tab, false);
+    }
+    padKey = '';
+  });
+  $('#btnSettings').addEventListener('click', openSettings);
 
   /* ---------- diagnose ---------- */
   function shuffle(a) {
@@ -509,7 +598,8 @@
     var b = ev.target.closest('[data-go]');
     if (!b) return;
     var go = b.dataset.go;
-    if (go === 'textbook') show('picker');
+    if (go === 'settings') openSettings();
+    else if (go === 'textbook') show('picker');
     else if (go === 'diagnose') newCase();
     else show(go);
   });
@@ -546,10 +636,9 @@
     });
     face.draw(frame, {
       bg: stageBg, head: head, light: { x: frame.sol.ox, y: frame.sol.oy },
-      cover: state.coverAnim, seeThrough: opts.seeThrough,
-      target: { show: true, tx: inp.tx, ty: inp.ty, near: clamp(sliderFromDist(inp.dist) / 100, 0, 1) },
-      guide: { show: true, labels: opts.labels }
+      cover: state.coverAnim, seeThrough: opts.seeThrough
     });
+    updatePad();
     if (state.tab === 'view' && !$('#paneView').hidden) updateView(frame, now);
   }
 
