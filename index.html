@@ -1,0 +1,2718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Practise examining eye movement disorders on a simulated patient.">
+<style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}img{max-width:100%}</style>
+<title>Cardinal Gaze</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Instrument+Sans:wght@400;500;600;700&family=Schibsted+Grotesk:wght@600;700;800&display=swap">
+<style>
+/* Layout: a one-screen app. The patient fills a stage; tools sit on a dock under it and a
+   tabbed panel carries findings, the patient's view and the Hess chart (beside the stage when wide). */
+:root {
+  --bg: #EDF1F1;
+  --surface: #FFFFFF;
+  --surface-2: #F3F6F6;
+  --ink: #13212A;
+  --muted: #566771;
+  --line: #D2DBDD;
+  --accent: #0D5C73;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCEDF2;
+  --re: #C2342D;
+  --le: #17804D;
+  --re-soft: #FBE5E2;
+  --le-soft: #DDF2E6;
+  --good: #17804D;
+  --bad: #C2342D;
+  --stage: #C7D5D9;
+  --screen: #0E171C;
+  --screen-line: #22323B;
+  --shadow: 0 2px 12px rgba(16, 32, 40, 0.16);
+  --font-display: 'Schibsted Grotesk', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --gl: max(16px, env(safe-area-inset-left, 0px));
+  --gr: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1418; --surface: #152027; --surface-2: #1B2931; --ink: #E6EEF0; --muted: #94A6AF;
+    --line: #283841; --accent: #5CBAD6; --accent-ink: #06222B; --accent-soft: #143642;
+    --re: #F0675F; --le: #4CC98F; --re-soft: #3A1E1C; --le-soft: #143326;
+    --good: #4CC98F; --bad: #F0675F; --stage: #1B2930; --screen: #070C0F; --screen-line: #1C2B33;
+    --shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1418; --surface: #152027; --surface-2: #1B2931; --ink: #E6EEF0; --muted: #94A6AF;
+  --line: #283841; --accent: #5CBAD6; --accent-ink: #06222B; --accent-soft: #143642;
+  --re: #F0675F; --le: #4CC98F; --re-soft: #3A1E1C; --le-soft: #143326;
+  --good: #4CC98F; --bad: #F0675F; --stage: #1B2930; --screen: #070C0F; --screen-line: #1C2B33;
+  --shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased; overflow: hidden; overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button, .tabs, .dock, .subbar { -webkit-user-select: none; user-select: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg { display: block; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+
+.app, .screen { height: 100%; }
+.wrap { padding-left: var(--gl); padding-right: var(--gr); }
+.ic, .chev, .iconbtn svg, .fab svg {
+  width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; flex: none;
+}
+
+/* ---------- home ---------- */
+.home { display: grid; grid-template-rows: minmax(170px, 40%) minmax(0, 1fr); }
+.home-face { position: relative; overflow: hidden; background: var(--stage); min-height: 0; }
+.home-face canvas { width: 100%; height: 100%; display: block; }
+.home-body { overflow-y: auto; padding-block: 22px 20px; display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+.home-head { margin-top: auto; }
+.menu { margin-bottom: auto; }
+.kicker { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.home h1 { font-size: clamp(30px, min(9vw, 11vh), 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-top: 6px; }
+.lede { color: var(--muted); max-width: 46ch; margin-top: 10px; }
+.menu { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.menu-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  padding: 13px 2px; background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left;
+}
+.menu-item .ic { width: 26px; height: 26px; color: var(--accent); }
+.menu-item b { display: block; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.menu-item small { display: block; color: var(--muted); font-size: 13px; }
+.menu-item .chev { color: var(--muted); width: 18px; height: 18px; }
+@media (hover: hover) { .menu-item:hover b { color: var(--accent); } }
+@media (orientation: landscape) {
+  .home { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 46%) minmax(0, 1fr); }
+  .home-body { padding-left: 28px; }
+}
+
+/* ---------- pages (picker, progress, information, answer sheet) ---------- */
+.page, .sheet { display: flex; flex-direction: column; background: var(--bg); }
+.bar { display: flex; align-items: center; gap: 10px; padding-block: 10px; background: var(--surface); border-bottom: 1px solid var(--line); flex: none; }
+.bar h2 { font-size: 19px; font-weight: 700; flex: 1; min-width: 0; }
+.iconbtn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; flex: none; }
+.page-body { flex: 1; min-height: 0; overflow-y: auto; padding-block: 16px 32px; }
+.page-body > * { max-width: 760px; margin-inline: auto; }
+
+.group-title, .label {
+  font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+.group-title { margin: 22px auto 8px; }
+.group-title:first-child { margin-top: 2px; }
+.cond-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; }
+.cond {
+  display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 11px 13px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0;
+}
+.cond b { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
+.cond small { color: var(--muted); font-size: 12.5px; line-height: 1.3; }
+.cond[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+@media (hover: hover) { .cond:hover { border-color: var(--accent); } }
+
+/* ---------- exam ---------- */
+.exam {
+  position: relative; display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(210px, 43%) auto minmax(0, 1fr);
+}
+.stage-wrap { grid-row: 1; grid-column: 1; position: relative; min-height: 0; overflow: hidden; background: var(--stage); }
+#stage { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+.stage-top {
+  position: absolute; top: 8px; left: var(--gl); right: var(--gr);
+  display: flex; align-items: center; gap: 8px; pointer-events: none;
+}
+.stage-top > * { pointer-events: auto; }
+.fab { width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--surface); box-shadow: var(--shadow); display: grid; place-items: center; flex: none; }
+.fab[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.title-pill {
+  flex: 0 1 auto; margin-inline: auto; min-width: 0; padding: 7px 14px; border-radius: 18px;
+  background: var(--surface); box-shadow: var(--shadow); font-family: var(--font-display); font-weight: 700;
+  font-size: 13.5px; line-height: 1.15; text-align: center; text-wrap: balance; pointer-events: none;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.top-actions { display: none; gap: 8px; }
+.mark {
+  flex: none; font: 600 12px var(--font-mono); padding: 3px 8px; border-radius: 6px;
+  background: rgba(12, 22, 28, 0.66); pointer-events: none;
+}
+.mark-r { color: #FF9A93; }
+.mark-l { color: #7FE0AE; }
+.stage-bottom {
+  position: absolute; left: 0; right: 0; bottom: 8px; z-index: 4; padding: 0 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+}
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.chip {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; text-align: center;
+  background: rgba(12, 22, 28, 0.72); color: #F2F6F7;
+}
+.subbar {
+  display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 14px; pointer-events: auto;
+  background: var(--surface); box-shadow: var(--shadow); max-width: 100%;
+}
+.seg {
+  border: 1px solid transparent; background: var(--surface-2); border-radius: 10px; padding: 9px 11px;
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.seg[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+#subNear input[type="range"] { width: clamp(90px, 34vw, 220px); accent-color: var(--accent); margin: 0 4px; }
+#subNear output { font: 600 12.5px var(--font-mono); min-width: 52px; text-align: right; padding-right: 6px; }
+
+.dock {
+  grid-row: 2; grid-column: 1; display: flex; justify-content: space-between; gap: 4px;
+  padding: 8px var(--gr) 8px var(--gl); background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.dock-l, .dock-r { display: contents; }
+.tool {
+  display: grid; justify-items: center; gap: 3px; background: none; border: 0; padding: 0;
+  min-width: 58px; font-size: 11px; font-weight: 600; color: var(--ink);
+}
+.tool .ic {
+  width: 46px; height: 46px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line);
+  display: grid; place-items: center; stroke: none;
+}
+.tool .ic svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tool[aria-pressed="true"] .ic { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tool-re .ic { color: var(--re); }
+.tool-le .ic { color: var(--le); }
+.tool-re[aria-pressed="true"] .ic { background: var(--re); border-color: var(--re); color: #fff; }
+.tool-le[aria-pressed="true"] .ic { background: var(--le); border-color: var(--le); color: #fff; }
+
+.panel { grid-row: 3; grid-column: 1; min-height: 0; display: flex; flex-direction: column; }
+.tabs { display: flex; align-items: stretch; gap: 2px; padding: 0 var(--gr) 0 var(--gl); background: var(--surface); border-bottom: 1px solid var(--line); flex: none; }
+.tabs [role="tab"] {
+  flex: 1; border: 0; background: none; padding: 11px 4px 9px; font-size: 13.5px; font-weight: 600;
+  color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.tabs [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.panel-close { display: none; align-self: center; width: 34px; height: 34px; margin-left: 6px; }
+.pane { flex: 1; min-height: 0; overflow-y: auto; padding: 14px var(--gr) 28px var(--gl); display: flex; flex-direction: column; gap: 12px; }
+.pane > * { flex: none; }
+
+.pane h3 { font-size: 20px; font-weight: 700; line-height: 1.15; }
+.pane .summary { font-size: 15.5px; }
+.pane .label { margin-top: 6px; }
+.findings { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.findings li { position: relative; padding-left: 18px; }
+.findings li::before { content: ""; position: absolute; left: 2px; top: 0.58em; width: 7px; height: 7px; border-radius: 50%; border: 1.6px solid var(--accent); }
+.muted { color: var(--muted); }
+.sidepick { display: inline-flex; gap: 4px; padding: 3px; border-radius: 11px; background: var(--surface); border: 1px solid var(--line); align-self: flex-start; }
+.sidepick button { border: 0; background: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; }
+.sidepick button[aria-pressed="true"][data-side="R"] { background: var(--re-soft); color: var(--re); }
+.sidepick button[aria-pressed="true"][data-side="L"] { background: var(--le-soft); color: var(--le); }
+.history { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.history p { margin-top: 4px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px;
+  padding: 13px 18px; font-weight: 700; font-size: 15px; background: var(--accent); color: var(--accent-ink);
+}
+.btn.ghost { background: none; color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+.btn.small { padding: 9px 13px; font-size: 13.5px; border-radius: 10px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* result */
+.result { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.score { display: flex; align-items: baseline; gap: 8px; }
+.score b { font-family: var(--font-display); font-size: 34px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.score span { color: var(--muted); font-weight: 600; }
+.marks { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.marks div { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: start; }
+.marks .tick { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; margin-top: 1px; }
+.tick.ok { background: var(--good); }
+.tick.no { background: var(--bad); }
+.marks dt { display: none; }
+.marks dd { margin: 0; font-size: 14px; }
+.marks dd small { display: block; color: var(--muted); font-size: 12.5px; }
+
+/* patient's view */
+.diplo { width: 100%; height: auto; }
+.d-bg { fill: var(--screen); }
+.d-grid { stroke: var(--screen-line); stroke-width: 1; }
+.d-side { fill: #6F838D; font: 500 9px var(--font-mono); }
+.d-re rect { fill: #FF5A52; }
+.d-le rect { fill: #3FDB8E; }
+.d-one rect { fill: #FFF3C4; }
+.d-img rect { filter: drop-shadow(0 0 5px currentColor); }
+.d-re { color: rgba(255, 90, 82, 0.8); } .d-le { color: rgba(63, 219, 142, 0.8); } .d-one { color: rgba(255, 243, 196, 0.7); }
+.d-legend { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.key { width: 16px; height: 5px; border-radius: 3px; display: inline-block; }
+.key-re { background: #FF5A52; } .key-le { background: #3FDB8E; margin-left: 8px; }
+.d-state { font-weight: 600; }
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.readout div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.readout dt { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.readout dd { margin: 2px 0 0; font: 600 14px var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.note { font-size: 12.5px; color: var(--muted); }
+.opts { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.opts label { display: flex; align-items: center; gap: 9px; font-size: 14px; }
+.opts input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+
+/* Hess chart */
+.hess { width: 100%; height: auto; max-width: 560px; align-self: center; }
+.h-bg { fill: var(--surface); stroke: var(--line); }
+.h-grid { stroke: var(--line); stroke-width: 0.6; }
+.h-axis { stroke: var(--muted); stroke-width: 0.6; opacity: 0.6; }
+.h-norm { fill: none; stroke: var(--muted); stroke-width: 0.8; stroke-dasharray: 2.5 2.5; }
+.h-field { fill-opacity: 0.1; stroke-width: 1.5; stroke-linejoin: round; }
+.h-inner { fill-opacity: 0.16; }
+.h-field.h-re, .h-dot.h-re { fill: var(--re); stroke: var(--re); }
+.h-field.h-le, .h-dot.h-le { fill: var(--le); stroke: var(--le); }
+.h-dot { stroke: none !important; }
+.h-title { font: 700 11px var(--font-display); }
+.h-title.h-re { fill: var(--re); } .h-title.h-le { fill: var(--le); }
+.h-sub { font: 500 8px var(--font-mono); fill: var(--muted); }
+.h-mus { font: 600 8px var(--font-mono); fill: var(--muted); }
+.locked { background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 18px 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+
+/* answer sheet */
+.sheet { position: absolute; inset: 0; z-index: 20; }
+.steps { font: 600 12px var(--font-mono); color: var(--muted); }
+.opt-list { display: flex; flex-direction: column; gap: 8px; }
+.opt { text-align: left; padding: 13px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-weight: 600; font-size: 14.5px; }
+@media (hover: hover) { .opt:hover { border-color: var(--accent); } }
+.q { font-family: var(--font-display); font-size: 21px; font-weight: 700; margin-bottom: 4px; }
+.q + .muted { margin-bottom: 14px; }
+.backlink { background: none; border: 0; color: var(--accent); font-weight: 600; padding: 10px 0; margin-top: 8px; }
+
+/* progress */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tile b { display: block; font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 13px; }
+.ptable { display: flex; flex-direction: column; margin-top: 4px; }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) 70px 54px; gap: 10px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.prow .bar-track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.prow .bar-fill { height: 100%; background: var(--good); border-radius: 3px; }
+.prow .num { font: 500 12.5px var(--font-mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.prow.unseen { color: var(--muted); }
+.empty { color: var(--muted); padding: 8px 0 4px; }
+.confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+
+/* information */
+.prose h3 { font-size: 18px; margin: 24px auto 8px; }
+.prose h3:first-child { margin-top: 2px; }
+.prose p { margin: 0 auto 10px; max-width: 68ch; }
+.prose ol { margin: 0 auto; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+.prose > ol, .prose > dl, .prose > p, .prose > h3 { max-width: 68ch; }
+.tools { margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.tools dt { font-weight: 700; }
+.tools dd { margin: 0; color: var(--muted); }
+.t-re { color: var(--re); } .t-le { color: var(--le); }
+
+/* ---------- phone held sideways: the face takes the whole screen ---------- */
+@media (orientation: landscape) and (max-height: 560px) {
+  .exam { grid-template-rows: minmax(0, 1fr); }
+  .exam.panel-open { grid-template-columns: minmax(0, 1fr) minmax(280px, 42%); }
+  .dock {
+    grid-row: 1; z-index: 3; background: none; border: 0; pointer-events: none;
+    align-self: end; justify-content: center; gap: 96px; padding-bottom: 8px;
+  }
+  .dock-l, .dock-r { display: flex; gap: 8px; }
+  .tool { pointer-events: auto; background: var(--surface); box-shadow: var(--shadow); border-radius: 13px; padding: 5px 4px 4px; min-width: 60px; font-size: 10.5px; gap: 1px; }
+  .tool .ic { width: 32px; height: 32px; border-color: transparent; background: none; }
+  .tool[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  .tool[aria-pressed="true"] .ic { background: none; border-color: transparent; }
+  .tool-re[aria-pressed="true"] { background: var(--re); color: #fff; }
+  .tool-le[aria-pressed="true"] { background: var(--le); color: #fff; }
+  .panel { grid-row: 1; grid-column: 2; display: none; border-left: 1px solid var(--line); }
+  .exam.panel-open .panel { display: flex; }
+  .panel-close { display: grid; }
+  .top-actions { display: flex; }
+  .exam.panel-open .top-actions { display: none; }
+  .stage-bottom { bottom: 70px; }
+}
+
+/* ---------- desk: stage and panel side by side ---------- */
+@media (min-width: 900px) and (min-height: 561px) {
+  .exam { grid-template-columns: minmax(0, 1fr) 420px; grid-template-rows: minmax(0, 1fr) auto; }
+  .dock { grid-row: 2; justify-content: center; gap: 22px; border-bottom: 0; border-top: 1px solid var(--line); }
+  .panel { grid-row: 1 / 3; grid-column: 2; border-left: 1px solid var(--line); }
+}
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7.5 4.5 4 4.5v14c3.5 0 6 .5 8 2 2-1.5 4.500-2 8-2v-14c-3.500 0-6 .5-8 2zM12 6.500v14"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4.500" width="14" height="16.500" rx="2.500"/><path d="M9 4.500V3.500a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9 13.500l2.200 2.200 4-4.400"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V5M17 20v-10"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.300v.200"/></symbol>
+    <symbol id="i-cover" viewBox="0 0 24 24"><ellipse cx="10" cy="9" rx="7" ry="5.800" fill="currentColor"/><path d="M14 13l5.500 8" stroke-width="3"/></symbol>
+    <symbol id="i-head" viewBox="0 0 24 24"><circle cx="12" cy="11" r="5.500"/><path d="M6.500 21c.800-2.800 2.800-4.300 5.500-4.300s4.700 1.500 5.500 4.300M3.500 9.500A9 9 0 0 1 6.500 4M20.500 9.500A9 9 0 0 0 17.500 4"/></symbol>
+    <symbol id="i-near" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.300" fill="currentColor"/><circle cx="12" cy="12" r="6.500"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="i-lid" viewBox="0 0 24 24"><path d="M3 17c3-4.500 6-6.500 9-6.500s6 2 9 6.500"/><circle cx="12" cy="16.500" r="2.300"/><path d="M12 7.500V2.500M9.500 5L12 2.500 14.500 5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12c3-5 6.500-7 10-7s7 2 10 7c-3 5-6.500 7-10 7s-7-2-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="17" height="17" rx="2"/><path d="M9.200 3.500v17M14.800 3.500v17M3.500 9.200h17M3.500 14.800h17"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.500 18.500h5M10.500 21.500h3M12 3a6 6 0 0 0-3.600 10.800c.600.500 1 1.200 1.100 2.200h5c.100-1 .500-1.700 1.100-2.200A6 6 0 0 0 12 3z"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <section class="screen home" id="home">
+    <div class="home-face"><canvas id="heroCanvas" aria-hidden="true"></canvas></div>
+    <div class="home-body wrap">
+      <div class="home-head">
+        <p class="kicker">Ocular motility trainer</p>
+        <h1>Cardinal Gaze</h1>
+        <p class="lede">Examine a simulated patient the way you would in clinic: versions, cover test, head tilt, convergence. Then name the lesion.</p>
+      </div>
+      <nav class="menu" aria-label="Main">
+        <button class="menu-item" data-go="textbook">
+          <svg class="ic"><use href="#i-book"/></svg>
+          <span><b>Textbook</b><small>24 conditions with the findings beside you</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+        <button class="menu-item" data-go="diagnose">
+          <svg class="ic"><use href="#i-clip"/></svg>
+          <span><b>Diagnose</b><small>An unknown patient. Examine, then commit.</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+        <button class="menu-item" data-go="progress">
+          <svg class="ic"><use href="#i-chart"/></svg>
+          <span><b>Progress</b><small id="homeStats">No cases yet</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+        <button class="menu-item" data-go="about">
+          <svg class="ic"><use href="#i-info"/></svg>
+          <span><b>Information</b><small>How to examine, and what the model leaves out</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+      </nav>
+    </div>
+  </section>
+
+  <section class="screen page" id="picker" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h2>Choose a condition</h2>
+    </header>
+    <div class="page-body wrap" id="pickerBody"></div>
+  </section>
+
+  <section class="screen exam" id="exam" hidden>
+    <div class="stage-wrap" id="stageWrap">
+      <canvas id="stage" aria-label="Patient's face. Drag to move the fixation light."></canvas>
+      <div class="stage-top">
+        <button class="fab" id="btnClose" aria-label="Close"><svg><use href="#i-close"/></svg></button>
+        <span class="mark mark-r" title="Patient's right eye">R</span>
+        <div class="title-pill"><span id="examTitle"></span></div>
+        <span class="mark mark-l" title="Patient's left eye">L</span>
+        <div class="top-actions">
+          <button class="fab top-tab" data-tab="info" id="topInfo" aria-label="Findings"><svg><use href="#i-bulb"/></svg></button>
+          <button class="fab top-tab" data-tab="view" aria-label="Patient's view"><svg><use href="#i-eye"/></svg></button>
+          <button class="fab top-tab" data-tab="hess" aria-label="Hess chart"><svg><use href="#i-grid"/></svg></button>
+        </div>
+      </div>
+      <div class="stage-bottom">
+        <div class="chips" id="chips" aria-live="polite"></div>
+        <div class="subbar" id="subHead" hidden>
+          <button class="seg" data-head="tiltR">Tilt R</button>
+          <button class="seg" data-head="straight">Straight</button>
+          <button class="seg" data-head="tiltL">Tilt L</button>
+          <button class="seg" data-head="doll">Doll’s head</button>
+          <button class="seg" data-head="habit" id="segHabit">Habitual</button>
+        </div>
+        <div class="subbar" id="subNear" hidden>
+          <button class="seg" data-dist="600">6 m</button>
+          <button class="seg" data-dist="33">33 cm</button>
+          <input type="range" id="distRange" min="0" max="100" value="0" step="1" aria-label="Target distance, far to near">
+          <output id="distOut" for="distRange">6 m</output>
+        </div>
+      </div>
+    </div>
+
+    <div class="dock" id="dock">
+      <div class="dock-l">
+        <button class="tool tool-re" id="btnCoverR" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover R</span></button>
+        <button class="tool" id="btnHead" aria-pressed="false"><span class="ic"><svg><use href="#i-head"/></svg></span><span class="lb">Head</span></button>
+      </div>
+      <div class="dock-r">
+        <button class="tool" id="btnNear" aria-pressed="false"><span class="ic"><svg><use href="#i-near"/></svg></span><span class="lb">Distance</span></button>
+        <button class="tool" id="btnLids" aria-pressed="false"><span class="ic"><svg><use href="#i-lid"/></svg></span><span class="lb">Lift lids</span></button>
+        <button class="tool tool-le" id="btnCoverL" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover L</span></button>
+      </div>
+    </div>
+
+    <aside class="panel" id="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="info" id="tabInfo" aria-selected="true">Findings</button>
+        <button role="tab" data-tab="view" aria-selected="false">Patient’s view</button>
+        <button role="tab" data-tab="hess" aria-selected="false">Hess chart</button>
+        <button class="iconbtn panel-close" id="panelClose" aria-label="Close panel"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <div class="pane" id="paneInfo"></div>
+      <div class="pane" id="paneView" hidden>
+        <div id="diplo"></div>
+        <p class="d-legend"><span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image</p>
+        <p class="d-state" id="dState"></p>
+        <dl class="readout">
+          <div><dt>Horizontal</dt><dd id="roH">None</dd></div>
+          <div><dt>Vertical</dt><dd id="roV">None</dd></div>
+          <div><dt>Torsion</dt><dd id="roT">None</dd></div>
+        </dl>
+        <p class="note">The readout is the angle between the eyes right now, for this target, head position and cover. Cover an eye to measure a latent deviation.</p>
+        <div class="opts">
+          <label><input type="checkbox" id="optSee"> See-through occluder</label>
+          <label><input type="checkbox" id="optLabels"> Show the yoke muscles at each gaze point</label>
+        </div>
+      </div>
+      <div class="pane" id="paneHess" hidden></div>
+    </aside>
+
+    <section class="sheet" id="sheet" hidden>
+      <header class="bar wrap">
+        <button class="iconbtn" id="sheetClose" aria-label="Back to the patient"><svg><use href="#i-close"/></svg></button>
+        <h2 id="sheetTitle">Your diagnosis</h2>
+        <span class="steps" id="sheetSteps"></span>
+      </header>
+      <div class="page-body wrap" id="sheetBody"></div>
+    </section>
+  </section>
+
+  <section class="screen page" id="progress" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h2>Progress</h2>
+    </header>
+    <div class="page-body wrap" id="progressBody"></div>
+  </section>
+
+  <section class="screen page" id="about" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h2>Information</h2>
+    </header>
+    <div class="page-body wrap prose">
+      <h3>Reading the screen</h3>
+      <p>You face the patient, so the patient’s right eye is on your left. Throughout the app <b class="t-re">red is the right eye</b> and <b class="t-le">green is the left eye</b>, as on a Hess screen.</p>
+      <p>The fixation target is a small light. Its corneal reflex is drawn in each eye, so you can read a Hirschberg test in any position: the reflex of a deviated eye sits off the centre of the pupil, about 1 mm for every 12°.</p>
+
+      <h3>Tools</h3>
+      <dl class="tools">
+        <div><dt>Fixation light</dt><dd>Drag anywhere on the face and the patient follows: pursuit. Tap somewhere else and the patient makes a saccade. Release near one of the nine rings and the light snaps to that position of gaze.</dd></div>
+        <div><dt>Cover R, Cover L</dt><dd>Tap to cover an eye, tap again to uncover. Go straight from one eye to the other for an alternate cover test. The occluder is see-through by default so that you can watch the eye behind it; switch that off under Patient’s view.</dd></div>
+        <div><dt>Head</dt><dd>Tilt the head to either shoulder for the Bielschowsky test, and keep it tilted while you cover. Doll’s head lets you drag to turn the head while the patient fixes straight ahead. Habitual returns the patient to the head posture they walked in with.</dd></div>
+        <div><dt>Distance</dt><dd>Move the target from 6 m to 33 cm, then on toward the nose to find the near point of convergence.</dd></div>
+        <div><dt>Lift lids</dt><dd>Holds both upper lids up, as you would with your thumb, when ptosis hides the eye.</dd></div>
+        <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres.</dd></div>
+        <div><dt>Hess chart</dt><dd>Plots each eye’s field while the other eye fixes. The smaller field belongs to the limited eye; the larger shows overaction of its yoke muscle.</dd></div>
+      </dl>
+
+      <h3>A routine that works</h3>
+      <ol>
+        <li>Look before you touch: head posture, lids, pupils, the position of each eye.</li>
+        <li>Corneal reflexes in primary position.</li>
+        <li>Cover–uncover each eye, then alternate cover. Repeat at 33 cm.</li>
+        <li>Versions into the nine positions. Compare the two eyes at each one.</li>
+        <li>Saccades: tap between right and left, then up and down. Watch speed and whether one eye lags.</li>
+        <li>Convergence to the near point.</li>
+        <li>Vertical deviation? Tilt the head to each shoulder and repeat the cover test.</li>
+        <li>Gaze palsy? Use the doll’s head manoeuvre to see whether the reflex overcomes it.</li>
+      </ol>
+
+      <h3>Scoring in Diagnose</h3>
+      <p>Each case is worth 5 points: 3 for the diagnosis, 1 for the side and 1 for the site of the problem. Opening the Hess chart before you answer costs 1 point. The streak counts consecutive correct diagnoses.</p>
+
+      <h3>What the model leaves out</h3>
+      <p>This is a teaching simulation, not a clinical tool. Each eye has six muscles with reciprocal innervation, Hering’s law links the two eyes, and mechanical restrictions are elastic limits. That is enough to reproduce primary and secondary deviation, incomitance, the three-step test and the difference between supranuclear, nuclear and peripheral lesions.</p>
+      <p>It does not model pupillary light reactions, forced duction testing, Bell phenomenon, sensory adaptations other than suppression, or the many atypical and partial presentations you will meet in real patients. Angles are deliberately a little larger than average so that they are visible on a phone.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* Cardinal Gaze — ocular motility model. Pure functions, no DOM.
+
+   Angles are degrees in patient coordinates: x > 0 is toward the patient's right, y > 0 is up.
+   Per eye, `a` is abduction (+) / adduction (−), `e` is elevation, `t` is excyclotorsion (+).
+
+   The model has three levels, so that the bedside manoeuvres separate them the way they do in clinic:
+     1. supranuclear  — scales voluntary gaze only; the vestibulo-ocular reflex bypasses it
+     2. nuclear / internuclear — scales conjugate commands (voluntary + VOR), not vergence
+     3. plant — six muscles per eye with reciprocal innervation, plus elastic mechanical limits
+   The fixing eye sets the innervation (Hering's law); the other eye receives the same command. */
+(function (root) {
+  'use strict';
+  var CG = (root.CG = root.CG || {});
+  var DEG = Math.PI / 180;
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  var K = {
+    TONE_H: 15,          // resting horizontal tone, in degrees of rotation it holds
+    TONE_V: 15,
+    EFFORT_H: 60,        // largest gaze command the patient can generate
+    EFFORT_V: 50,
+    RANGE: { ab: 48, ad: 50, up: 40, down: 50 },
+    OBLIQUE_H: 0.2,      // abducting action of the obliques
+    RECTUS_H: 0.2,       // adducting action of the vertical recti (balances the obliques)
+    TILT: 4.5,           // vertical effect (deg) of a full head tilt through an unbalanced torsional pair
+    IPD_CM: 6.2
+  };
+
+  // Reciprocal innervation. agonist(c) − agonist(−c) === c, both stay positive,
+  // and the antagonist relaxes exponentially as the eye is driven into the agonist's field.
+  function agonist(cmd, tone) {
+    return cmd > 0 ? cmd + tone * Math.exp(-cmd / tone) : tone * Math.exp(cmd / tone);
+  }
+
+  function makeEye(o) {
+    o = o || {};
+    return {
+      s: Object.assign({ LR: 1, MR: 1, SR: 1, IR: 1, SO: 1, IO: 1 }, o.s),
+      fatigable: o.fatigable || null,
+      ino: o.ino == null ? null : o.ino,
+      vergGain: o.vergGain == null ? 1 : o.vergGain,
+      vOffset: o.vOffset || 0,
+      tOffset: o.tOffset || 0,
+      limits: o.limits || null,
+      shoot: o.shoot || 0,
+      retract: o.retract || 0,
+      lid: Object.assign({ ptosis: 0, fatigue: 0, retraction: 0, lower: 0, lag: 0 }, o.lid),
+      browLift: o.browLift || 0,
+      pupil: o.pupil || 3.8,
+      pupilFixed: !!o.pupilFixed,
+      globe: o.globe || 'normal',
+      bruise: !!o.bruise,
+      vmax: Object.assign({ ab: 520, ad: 520, up: 480, down: 480 }, o.vmax)
+    };
+  }
+
+  function makeConfig(o) {
+    o = o || {};
+    return {
+      eyes: { R: makeEye(o.R), L: makeEye(o.L) },
+      fixPref: o.fixPref || 'alt',
+      fusion: Object.assign({ h: 5, v: 2 }, o.fusion),
+      suppression: !!o.suppression,
+      verg: Object.assign({ bias: 0, gain: 1, max: 40 }, o.verg),
+      supra: o.supra ? Object.assign({ up: 1, down: 1, right: 1, left: 1 }, o.supra) : null,
+      nuclear: o.nuclear ? Object.assign({ right: 1, left: 1, bias: 0 }, o.nuclear) : null,
+      nystagmus: o.nystagmus || [],
+      fatigue: o.fatigue || null,
+      cogan: !!o.cogan,
+      posture: Object.assign({ yaw: 0, pitch: 0, roll: 0 }, o.posture),
+      blinkEvery: o.blinkEvery || 4.2
+    };
+  }
+
+  function strengths(eye, fatigue) {
+    if (!fatigue || !eye.fatigable) return eye.s;
+    var s = {};
+    for (var m in eye.s) s[m] = Math.max(0.05, eye.s[m] - fatigue * (eye.fatigable[m] || 0));
+    return s;
+  }
+
+  // A limit is a number, or [value when adducted, value when abducted].
+  function limitAt(val, a) {
+    if (val == null) return null;
+    if (typeof val === 'number') return val;
+    return lerp(val[0], val[1], clamp((a + 20) / 40, 0, 1));
+  }
+
+  function cap1(x) { return x < 1 ? x : 1; }
+
+  /* Where one eye ends up for a given voluntary version command `ver` (world x/y)
+     and total vergence command `vg`. */
+  function eyePosition(cfg, key, ver, vg, ctx) {
+    var eye = cfg.eyes[key];
+    var sgn = key === 'R' ? 1 : -1;
+    var vx = ver.x, vy = ver.y;
+    var sp = cfg.supra;
+    if (sp) {
+      vx *= vx >= 0 ? sp.right : sp.left;
+      vy *= vy >= 0 ? sp.up : sp.down;
+    }
+    // voluntary and vestibular drives converge on the same motor neurons, which saturate
+    var cx = clamp(vx + (ctx.vorX || 0), -K.EFFORT_H, K.EFFORT_H);
+    var cy = clamp(vy + (ctx.vorY || 0), -K.EFFORT_V, K.EFFORT_V);
+    var nu = cfg.nuclear;
+    if (nu) {
+      cx *= cx >= 0 ? nu.right : nu.left;
+      cx += nu.bias;
+    }
+    var h = sgn * cx;
+    if (eye.ino != null && h < 0) h *= eye.ino;
+    h -= (vg / 2) * eye.vergGain;
+    var v = cy + eye.vOffset;
+
+    var s = strengths(eye, ctx.fatigue);
+    var lr = agonist(h, K.TONE_H), mr = agonist(-h, K.TONE_H);
+    var el = agonist(v, K.TONE_V), dp = agonist(-v, K.TONE_V);
+
+    var a = s.LR * lr - s.MR * mr;
+    a += K.OBLIQUE_H * ((s.SO - 1) * dp + (s.IO - 1) * el) - K.RECTUS_H * ((s.SR - 1) * el + (s.IR - 1) * dp);
+    var L = eye.limits;
+    var soft = L && L.soft != null ? L.soft : 0.15;
+    if (L) {
+      if (L.ab != null && a > L.ab) a = L.ab + (a - L.ab) * soft;
+      if (L.ad != null && a < -L.ad) a = -L.ad + (a + L.ad) * soft;
+    }
+    a = clamp(a, -K.RANGE.ad, K.RANGE.ab);
+
+    // Share of vertical work: obliques dominate in adduction, vertical recti in abduction.
+    var wIO = clamp(0.35 - a / 100, 0.1, 0.65), wSR = 1 - wIO;
+    var wSO = clamp(0.30 - a / 150, 0.1, 0.5), wIR = 1 - wSO;
+    var e = (wSR * s.SR + wIO * s.IO) * el - (wIR * s.IR + wSO * s.SO) * dp;
+
+    // Head tilt: the lower-side eye must intort (SR + SO), the other extort (IO + IR).
+    // An unbalanced pair leaks a vertical movement — the Bielschowsky sign.
+    var q = clamp(sgn * (ctx.roll || 0) / 30, -1, 1);
+    e += K.TILT * q * ((cap1(s.SR) - cap1(s.SO)) - (cap1(s.IO) - cap1(s.IR)));
+
+    if (eye.shoot && a < -12) e += eye.shoot * (-a - 12) * clamp(v / 8 + 0.6, -1, 1);
+    if (L) {
+      var up = limitAt(L.up, a), dn = limitAt(L.down, a);
+      if (up != null && e > up) e = up + (e - up) * soft;
+      if (dn != null && e < -dn) e = -dn + (e + dn) * soft;
+    }
+    e = clamp(e, -K.RANGE.down, K.RANGE.up);
+
+    // Torsion left over when an intorter (SO, SR) or extorter (IO, IR) is missing.
+    var t = eye.tOffset + 0.3 * ((1 - s.SO) * dp - (1 - s.IO) * el + (1 - s.SR) * el - (1 - s.IR) * dp);
+    return { a: a, e: e, t: t, h: h, v: v };
+  }
+
+  function vergenceDemand(distCm) {
+    return 2 * Math.atan(K.IPD_CM / 2 / distCm) / DEG;
+  }
+
+  function sees(cfg, key, st) {
+    if (st.cover === key) return false;
+    var lid = cfg.eyes[key].lid;
+    if (!st.lidsLifted && lid.ptosis + (st.fatigue || 0) * lid.fatigue >= 0.9) return false;
+    return true;
+  }
+
+  /* Steady state for a target, head position and cover.
+     st: { tx, ty, dist (cm), yaw, pitch, roll, vorX, vorY, cover, lidsLifted, fatigue,
+           lastFix, forceFix, dissociate } */
+  function solve(cfg, st) {
+    var roll = st.roll || 0;
+    var cr = Math.cos(roll * DEG), sr = Math.sin(roll * DEG);
+    var dx = st.tx - (st.yaw || 0), dy = st.ty - (st.pitch || 0);
+    var ox = dx * cr - dy * sr, oy = dx * sr + dy * cr;       // target direction in the head frame
+    var demand = vergenceDemand(st.dist || 600);
+    var V = cfg.verg;
+    var vg = clamp(V.bias + demand * V.gain, -40, V.max);
+    var ctx = { vorX: st.vorX || 0, vorY: st.vorY || 0, roll: roll, fatigue: st.fatigue || 0 };
+    var req = { R: { a: ox - demand / 2, e: oy }, L: { a: -ox - demand / 2, e: oy } };
+    var can = { R: sees(cfg, 'R', st), L: sees(cfg, 'L', st) };
+
+    function attempt(fix) {
+      var sgn = fix === 'R' ? 1 : -1;
+      var ver = { x: clamp(ox - ctx.vorX, -K.EFFORT_H, K.EFFORT_H), y: clamp(oy - ctx.vorY, -K.EFFORT_V, K.EFFORT_V) };
+      var p, ex = 0, ey = 0;
+      for (var i = 0; i < 80; i++) {
+        p = eyePosition(cfg, fix, ver, vg, ctx);
+        ex = req[fix].a - p.a; ey = req[fix].e - p.e;
+        if (Math.abs(ex) + Math.abs(ey) < 0.01) break;
+        ver.x = clamp(ver.x + 0.8 * sgn * ex, -K.EFFORT_H, K.EFFORT_H);
+        ver.y = clamp(ver.y + 0.8 * ey, -K.EFFORT_V, K.EFFORT_V);
+      }
+      return { fix: fix, ver: ver, err: Math.sqrt(ex * ex + ey * ey) };
+    }
+
+    var pref = cfg.fixPref === 'alt' ? (st.lastFix || 'R') : cfg.fixPref;
+    var other = pref === 'R' ? 'L' : 'R';
+    var sol;
+    if (st.forceFix) sol = attempt(st.forceFix);
+    else if (can[pref] && !can[other]) sol = attempt(pref);
+    else if (!can[pref] && can[other]) sol = attempt(other);
+    else {
+      sol = attempt(pref);
+      if (sol.err > 2.5 && can[other]) {
+        var alt = attempt(other);
+        if (alt.err < sol.err - 1) sol = alt;
+      }
+    }
+
+    var fix = sol.fix, non = fix === 'R' ? 'L' : 'R';
+    var pF = eyePosition(cfg, fix, sol.ver, vg, ctx);
+    var pN = eyePosition(cfg, non, sol.ver, vg, ctx);
+    var fused = false;
+    if (!st.dissociate && can.R && can.L && sol.err < 1 && demand <= V.max + 0.5) {
+      var F = cfg.fusion;
+      if (Math.abs(pN.a - req[non].a) <= F.h && Math.abs(pN.e - req[non].e) <= F.v) fused = true;
+    }
+    if (fused) { pN.a = req[non].a; pN.e = req[non].e; }
+
+    function pack(key, p) {
+      var sgn = key === 'R' ? 1 : -1;
+      return {
+        a: p.a, e: p.e, t: p.t, h: p.h,
+        x: sgn * p.a, y: p.e,
+        reqX: sgn * req[key].a, reqY: req[key].e,
+        errX: sgn * (p.a - req[key].a), errY: p.e - req[key].e
+      };
+    }
+    var eyes = {};
+    eyes[fix] = pack(fix, pF);
+    eyes[non] = pack(non, pN);
+    return {
+      fix: fix, fused: fused, can: can, ver: sol.ver, vg: vg, demand: demand, err: sol.err,
+      ox: ox, oy: oy, eyes: eyes,
+      dev: {
+        // + eso / − exo; + right eye higher
+        eso: -((eyes.R.a - req.R.a) + (eyes.L.a - req.L.a)),
+        rHyper: (eyes.R.e - req.R.e) - (eyes.L.e - req.L.e),
+        tR: eyes.R.t, tL: eyes.L.t
+      }
+    };
+  }
+
+  /* ---------- time-stepped simulation: saccades, drifts, nystagmus, lids ---------- */
+
+  function Sim(cfg) { this.cfg = cfg; this.reset(); }
+
+  Sim.prototype.reset = function () {
+    this.time = 0;
+    this.pos = { R: { x: 0, y: 0, t: 0 }, L: { x: 0, y: 0, t: 0 } };
+    this.fatigue = 0;
+    this.lastFix = null;
+    this.prev = null;
+    this.slow = { R: 0, L: 0 };
+    this.blinkT = 1.5 + Math.random() * 2;
+    this.blinkP = 0;
+    this.downT = 0;
+    this.twitch = 0;
+    this.snap = true;
+  };
+
+  Sim.prototype.step = function (dt, input) {
+    var cfg = this.cfg, k, i;
+    dt = Math.min(dt, 0.05);
+    this.time += dt;
+
+    if (cfg.fatigue) {
+      var lookingUp = input.ty - (input.pitch || 0) > 10;
+      this.fatigue = clamp(this.fatigue + (lookingUp ? dt / cfg.fatigue.rise : -dt / cfg.fatigue.recover), 0, 1);
+    }
+
+    var st = {
+      tx: input.tx, ty: input.ty, dist: input.dist, yaw: input.yaw, pitch: input.pitch, roll: input.roll,
+      vorX: input.vorX, vorY: input.vorY, cover: input.cover, lidsLifted: input.lidsLifted,
+      fatigue: this.fatigue, lastFix: this.lastFix
+    };
+    var sol = solve(cfg, st);
+    this.lastFix = sol.fix;
+    var non = sol.fix === 'R' ? 'L' : 'R';
+
+    // Decide whether the coming movement is a refixation saccade or a slow fusional/phoric drift.
+    var p = this.prev;
+    if (p && !this.snap) {
+      var jumped = Math.abs(st.tx - p.tx) + Math.abs(st.ty - p.ty) > 4;
+      if (jumped) { this.slow.R = 0; this.slow.L = 0; }
+      else if (p.fix !== sol.fix || p.fused !== sol.fused || p.cover !== st.cover) {
+        var f = sol.eyes[sol.fix], fp = this.pos[sol.fix];
+        var fixMoves = Math.abs(f.x - fp.x) + Math.abs(f.y - fp.y) > 1.2;
+        if (!fixMoves) this.slow[non] = 0.7;
+      }
+    }
+    this.prev = { tx: st.tx, ty: st.ty, fix: sol.fix, fused: sol.fused, cover: st.cover };
+
+    var vorActive = !!(st.vorX || st.vorY);
+    for (i = 0; i < 2; i++) {
+      k = i ? 'L' : 'R';
+      var g = sol.eyes[k], pos = this.pos[k], eye = cfg.eyes[k], sgn = k === 'R' ? 1 : -1;
+      if (this.snap) { pos.x = g.x; pos.y = g.y; pos.t = g.t; continue; }
+      var rate = this.slow[k] > 0 ? 5 : 24;
+      var ddx = g.x - pos.x, ddy = g.y - pos.y;
+      var vm = eye.vmax, boost = vorActive ? 4 : 1;
+      var capH = (ddx * sgn > 0 ? vm.ab : vm.ad) * boost * dt;
+      var capV = (ddy > 0 ? vm.up : vm.down) * boost * dt;
+      var gain = Math.min(1, rate * dt);
+      pos.x += clamp(ddx * gain, -capH, capH);
+      pos.y += clamp(ddy * gain, -capV, capV);
+      pos.t += (g.t - pos.t) * Math.min(1, 10 * dt);
+      this.slow[k] = Math.max(0, this.slow[k] - dt);
+    }
+    this.snap = false;
+
+    // Nystagmus and saccadic intrusions ride on top of the mean position.
+    var off = { R: 0, L: 0 }, pulse = 0;
+    for (i = 0; i < cfg.nystagmus.length; i++) {
+      var n = cfg.nystagmus[i];
+      var I = n.when(sol, st);
+      if (!(I > 0.03)) continue;
+      if (I > 1) I = 1;
+      var ph = (this.time * n.freq) % 1;
+      if (n.type === 'jerk') {
+        // drifts back toward centre, then beats out again
+        var w = ph < 0.78 ? -ph / 0.78 : -1 + (ph - 0.78) / 0.22;
+        off[n.eye] += n.dirX * n.amp * I * w;
+      } else if (n.type === 'convret') {
+        var u = ph < 0.16 ? ph / 0.16 : 1 - (ph - 0.16) / 0.84;
+        off.R -= n.amp * I * u;
+        off.L += n.amp * I * u;
+        pulse = Math.max(pulse, I * u);
+      } else if (n.type === 'swj') {
+        var sq = ph < 0.14 ? n.amp * I : 0;
+        off.R += sq; off.L += sq;
+      }
+    }
+
+    // Blink
+    this.blinkT -= dt;
+    if (this.blinkT <= 0 && this.blinkP <= 0) {
+      this.blinkP = 0.22;
+      this.blinkT = cfg.blinkEvery * (0.6 + Math.random() * 0.9);
+    }
+    var blink = 0;
+    if (this.blinkP > 0) {
+      this.blinkP -= dt;
+      blink = Math.sin(Math.PI * (1 - Math.max(0, this.blinkP) / 0.22));
+    }
+
+    // Cogan lid twitch: the lid overshoots on return from sustained downgaze.
+    var twitch = 0;
+    if (cfg.cogan) {
+      if (sol.oy < -12) this.downT += dt;
+      else if (sol.oy > -5) {
+        if (this.downT > 0.5) this.twitch = 0.5;
+        this.downT = 0;
+      }
+      if (this.twitch > 0) {
+        this.twitch -= dt;
+        twitch = Math.sin(Math.PI * (1 - Math.max(0, this.twitch) / 0.5)) * 0.45;
+      }
+    }
+
+    var near = clamp(sol.demand / 35, 0, 1);
+    var out = { sol: sol, fatigue: this.fatigue, eyes: {} };
+    for (i = 0; i < 2; i++) {
+      k = i ? 'L' : 'R';
+      var ey = cfg.eyes[k], ps = this.pos[k], sv = sol.eyes[k];
+      var x = ps.x + off[k], y = ps.y;
+      out.eyes[k] = {
+        x: x, y: y, t: ps.t,
+        errX: x - sv.reqX, errY: y - sv.reqY,
+        pupil: ey.pupilFixed ? ey.pupil : ey.pupil - 1.3 * near,
+        ptosis: clamp(ey.lid.ptosis + this.fatigue * ey.lid.fatigue - twitch, -0.3, 1),
+        retraction: ey.lid.retraction, lower: ey.lid.lower, lag: ey.lid.lag,
+        lifted: !!input.lidsLifted,
+        squeeze: clamp(ey.retract * clamp(-sv.h / 30, 0, 1) + 0.25 * pulse, 0, 1),
+        blink: blink,
+        browLift: ey.browLift,
+        covered: input.cover === k,
+        seeing: sol.can[k],
+        globe: ey.globe, bruise: ey.bruise
+      };
+    }
+    return out;
+  };
+
+  /* ---------- derived charts ---------- */
+
+  var HESS_INNER = [[-15, 15], [0, 15], [15, 15], [15, 0], [15, -15], [0, -15], [-15, -15], [-15, 0]];
+  var HESS_OUTER = [[-30, 30], [-15, 30], [0, 30], [15, 30], [30, 30], [30, 15], [30, 0], [30, -15],
+                    [30, -30], [15, -30], [0, -30], [-15, -30], [-30, -30], [-30, -15], [-30, 0], [-30, 15]];
+
+  // Each eye's field is plotted while the other eye fixes the target points, eyes dissociated.
+  function hess(cfg) {
+    function field(plotEye) {
+      var fixEye = plotEye === 'R' ? 'L' : 'R';
+      function at(pt) {
+        var s = solve(cfg, { tx: pt[0], ty: pt[1], dist: 600, forceFix: fixEye, dissociate: true, lidsLifted: true });
+        return [s.eyes[plotEye].x, s.eyes[plotEye].y];
+      }
+      return { centre: at([0, 0]), inner: HESS_INNER.map(at), outer: HESS_OUTER.map(at) };
+    }
+    return { R: field('R'), L: field('L'), innerTargets: HESS_INNER, outerTargets: HESS_OUTER };
+  }
+
+  function prism(deg) { return 100 * Math.tan(Math.abs(deg) * DEG); }
+
+  CG.engine = {
+    K: K, makeEye: makeEye, makeConfig: makeConfig, eyePosition: eyePosition, solve: solve,
+    vergenceDemand: vergenceDemand, Sim: Sim, hess: hess, prism: prism, clamp: clamp, lerp: lerp
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* Cardinal Gaze — the condition catalogue: model parameters and the teaching text for each. */
+(function (root) {
+  'use strict';
+  var CG = (root.CG = root.CG || {});
+  var E = CG.engine;
+
+  // Build a config for a lesion on `side`. fn(o, S, O, sg): S = affected eye key, O = the other,
+  // sg = +1 when the affected side is the patient's right (the sign of ipsilateral gaze).
+  function build(fn) {
+    return function (side) {
+      var S = side === 'L' ? 'L' : 'R', O = S === 'R' ? 'L' : 'R', sg = S === 'R' ? 1 : -1;
+      var o = {};
+      fn(o, S, O, sg);
+      return E.makeConfig(o);
+    };
+  }
+
+  function abductingNystagmus(eye, dirX) {
+    return {
+      type: 'jerk', eye: eye, dirX: dirX, amp: 3.2, freq: 3.4,
+      when: function (sol) { return (sol.ver.x * dirX - 8) / 12; }
+    };
+  }
+
+  var SITES = {
+    none: 'No lesion: normal alignment and movement',
+    fusion: 'Binocular alignment (comitant squint), no weak muscle',
+    vergence: 'Vergence control, no weak muscle',
+    cn6: 'Abducens nerve (CN VI) and the lateral rectus',
+    cn4: 'Trochlear nerve (CN IV) and the superior oblique',
+    cn3: 'Oculomotor nerve (CN III)',
+    mlf: 'Medial longitudinal fasciculus',
+    pons: 'Pontine gaze centre (PPRF or abducens nucleus)',
+    ponsmlf: 'Pontine gaze centre together with the adjacent MLF',
+    pretectum: 'Dorsal midbrain (pretectum and posterior commissure)',
+    rimlf: 'Supranuclear vertical gaze centres, degenerative',
+    otolith: 'Otolith–ocular (utricular) pathway',
+    nmj: 'Neuromuscular junction',
+    myopathy: 'Extraocular muscle fibres (mitochondrial myopathy)',
+    tedmuscle: 'Muscle bellies, enlarged and fibrosed by inflammation',
+    floor: 'Inferior rectus tethered in the orbital floor',
+    trochlea: 'Superior oblique tendon at the trochlea',
+    dysinnervation: 'Absent abducens nucleus, lateral rectus wired to CN III',
+    elevators: 'Elevation of one eye (superior rectus, tight inferior rectus or supranuclear)'
+  };
+
+  var GROUPS = [
+    { id: 'baseline', name: 'Normal and comitant' },
+    { id: 'nerve', name: 'Cranial nerve palsies' },
+    { id: 'brainstem', name: 'Brainstem: internuclear and supranuclear' },
+    { id: 'muscle', name: 'Neuromuscular junction and muscle' },
+    { id: 'mechanical', name: 'Restrictive and congenital' }
+  ];
+
+  var LIST = [
+    {
+      id: 'normal', name: 'Normal ocular motility', short: 'Straight eyes, full movements', group: 'baseline',
+      sided: false, site: 'none',
+      build: build(function (o) { o.fusion = { h: 6, v: 2 }; }),
+      history: 'A 30-year-old referred by an optician for “a possible squint”. No symptoms.',
+      summary: 'Orthotropic in primary position, with full conjugate versions and no movement on cover testing.',
+      signs: [
+        'Corneal reflexes are central and symmetric in every position of gaze',
+        'No refixation movement on cover–uncover or alternate cover test',
+        'Full ductions: in lateral gaze the limbus of the abducting eye reaches the outer canthus',
+        'Convergence holds until the target is about 9 cm away',
+        'Head tilt and the doll’s head manoeuvre change nothing'
+      ],
+      localise: 'Nothing to localise. Use this patient to calibrate your eye for normal ranges and saccade speed before moving on.',
+      pitfall: 'A wide nasal bridge, epicanthal folds or a large angle kappa can imitate a squint (pseudostrabismus). The reflexes stay symmetric and the cover test shows no movement.'
+    },
+    {
+      id: 'et', name: 'Comitant esotropia', short: 'Convergent squint, same angle everywhere', group: 'baseline',
+      sided: false, site: 'fusion',
+      build: build(function (o) {
+        o.verg = { bias: 16 }; o.fusion = { h: 0, v: 0 }; o.suppression = true; o.fixPref = 'alt';
+      }),
+      history: 'A 4-year-old whose parents have seen one eye turn in since infancy. The child has never complained of double vision.',
+      summary: 'A constant convergent squint whose angle is the same in every direction of gaze and with either eye fixing. This patient alternates fixation freely.',
+      signs: [
+        'The corneal reflex of the deviating eye sits temporal to the pupil centre',
+        'Cover the fixing eye and the other eye moves outward to take up fixation',
+        'After uncovering, the eye that was last fixing keeps fixing: free alternation',
+        'The angle is the same in right, left, up and down gaze; ductions are full',
+        'No diplopia: the deviating eye is suppressed'
+      ],
+      localise: 'No nerve or muscle is weak. Typical causes are infantile esotropia and accommodative esotropia. Do a cycloplegic refraction and look for amblyopia.',
+      pitfall: 'A sixth nerve palsy also gives esotropia, but the angle grows on gaze toward the weak muscle and abduction is limited. Acute comitant esotropia in an older child or adult deserves imaging.'
+    },
+    {
+      id: 'xt', name: 'Comitant exotropia', short: 'Divergent squint, same angle everywhere', group: 'baseline',
+      sided: false, site: 'fusion',
+      build: build(function (o) {
+        o.verg = { bias: -16 }; o.fusion = { h: 0, v: 0 }; o.suppression = true; o.fixPref = 'alt';
+      }),
+      history: 'A 9-year-old with one eye that has drifted outward for years, more when tired. No double vision.',
+      summary: 'A constant divergent squint with a stable angle in all positions of gaze. Fixation alternates.',
+      signs: [
+        'The corneal reflex of the deviating eye sits nasal to the pupil centre',
+        'Cover the fixing eye and the other eye moves inward to take up fixation',
+        'Either eye can hold fixation after the cover is removed',
+        'The angle does not change across the nine positions; adduction is full',
+        'No diplopia: suppression'
+      ],
+      localise: 'Usually a decompensated intermittent exotropia, or a sensory or consecutive exotropia. No paretic muscle.',
+      pitfall: 'A third nerve palsy and an INO also leave an eye out. Look for limited adduction, ptosis or a vertical element, none of which belong to a comitant exotropia.'
+    },
+    {
+      id: 'ci', name: 'Convergence insufficiency', short: 'Exophoria at near, remote near point', group: 'baseline',
+      sided: false, site: 'vergence',
+      build: build(function (o) {
+        o.verg = { gain: 0.55, max: 15 }; o.fusion = { h: 9, v: 2 }; o.fixPref = 'alt';
+      }),
+      history: 'A 22-year-old student with eye strain, headache and words that “split in two” after twenty minutes of reading.',
+      summary: 'Straight at distance, but with an exophoria at near and a near point of convergence that has receded.',
+      signs: [
+        'No movement on cover testing at 6 m',
+        'At 33 cm the covered eye drifts out and recovers slowly when uncovered: exophoria',
+        'Bring the target closer: one eye gives up and swings out at 20–25 cm',
+        'Adduction is full on lateral gaze, so the medial recti themselves are normal',
+        'Crossed diplopia at near only'
+      ],
+      localise: 'A disorder of vergence control, not of muscle or nerve. Common in young adults and after concussion; also seen in Parkinson disease.',
+      pitfall: 'Bilateral INO also loses adduction, but there it fails on lateral gaze. Here the medial recti work normally on versions.'
+    },
+
+    {
+      id: 'cn6', name: 'Abducens (CN VI) palsy', short: 'Weak lateral rectus', group: 'nerve',
+      sided: true, site: 'cn6',
+      build: build(function (o, S, O, sg) {
+        o[S] = { s: { LR: 0.2 }, vmax: { ab: 110 } };
+        o.fixPref = O; o.fusion = { h: 3.5, v: 1.5 }; o.posture = { yaw: sg * 22 };
+      }),
+      history: 'A 67-year-old with diabetes and sudden horizontal double vision, worse when driving and when looking to one side.',
+      summary: 'A weak lateral rectus gives an incomitant esotropia that is greatest on gaze toward the affected side and at distance.',
+      signs: [
+        'Esotropia in primary position, hidden by a face turn to the {S}',
+        'The {S} eye does not abduct: the limbus stops well short of the outer canthus',
+        'The esotropia increases in {S} gaze and disappears in {O} gaze',
+        'Secondary deviation: cover the {O} eye and the angle becomes larger',
+        'Uncrossed horizontal diplopia, worse at distance than near',
+        'The abducting saccade of the {S} eye is slow'
+      ],
+      localise: 'Microvascular ischaemia is the commonest cause in older adults. Also raised intracranial pressure (a false localising sign), trauma, tumours of the clivus or cavernous sinus, and demyelination.',
+      pitfall: 'Duane syndrome also limits abduction, but the globe retracts on adduction and the primary deviation is small. Thyroid eye disease with a tight medial rectus and myasthenia can both imitate it.'
+    },
+    {
+      id: 'cn6bi', name: 'Bilateral abducens (CN VI) palsy', short: 'Both lateral recti weak', group: 'nerve',
+      sided: false, site: 'cn6',
+      build: build(function (o) {
+        o.R = { s: { LR: 0.45 }, vmax: { ab: 150 } };
+        o.L = { s: { LR: 0.55 }, vmax: { ab: 170 } };
+        o.fixPref = 'alt'; o.fusion = { h: 3, v: 1.5 };
+      }),
+      history: 'A 28-year-old with two weeks of headache that is worse lying down, brief greying of vision on standing, and horizontal double vision.',
+      summary: 'Both lateral recti are weak: an esotropia in primary position that increases on gaze to either side.',
+      signs: [
+        'Esotropia in primary position, larger at distance than at near',
+        'Abduction is limited in both eyes',
+        'The esotropia increases on right gaze and on left gaze',
+        'Uncrossed diplopia in every horizontal direction',
+        'Vertical movements are normal'
+      ],
+      localise: 'Think of raised intracranial pressure and look for papilloedema. Also clivus tumour, trauma, meningitis and Wernicke encephalopathy. Möbius syndrome when congenital.',
+      pitfall: 'Thyroid eye disease with two tight medial recti looks similar. Saccade speed separates them: slow in paresis, normal up to an abrupt stop in restriction.'
+    },
+    {
+      id: 'cn4', name: 'Trochlear (CN IV) palsy', short: 'Weak superior oblique', group: 'nerve',
+      sided: true, site: 'cn4',
+      build: build(function (o, S, O, sg) {
+        o[S] = { s: { SO: 0.25, IO: 1.25 } };
+        o.fixPref = O; o.fusion = { h: 3, v: 1.5 };
+        o.posture = { roll: -sg * 20, yaw: -sg * 8, pitch: -5 };
+      }),
+      history: 'A 41-year-old with vertical double vision since a bicycle accident. It is worst going down stairs and when reading.',
+      summary: 'A weak superior oblique gives a hypertropia that follows the three-step rule: worse on gaze to the opposite side and on head tilt to the same side.',
+      signs: [
+        '{Sc} hypertropia in primary position',
+        'It increases in {O} gaze, when the {S} eye is adducted, and most of all down and to the {O}',
+        'Bielschowsky test: larger on head tilt to the {S}, almost gone on tilt to the {O}',
+        'Habitual head tilt to the {O}, with the chin slightly down',
+        'The {S} inferior oblique overacts: the eye shoots up in adduction',
+        'Vertical diplopia with a tilted second image (excyclotorsion)'
+      ],
+      localise: 'Congenital (large vertical fusion range, a tilt in old photographs) or acquired from closed head injury or microvascular disease. The nerve exits dorsally and crosses, so a nuclear lesion gives a contralateral palsy.',
+      pitfall: 'Skew deviation can pass the three-step test. In skew the higher eye is incyclotorted and the hypertropia often halves when the patient lies supine.'
+    },
+    {
+      id: 'cn4bi', name: 'Bilateral trochlear (CN IV) palsy', short: 'Both superior obliques weak', group: 'nerve',
+      sided: false, site: 'cn4',
+      build: build(function (o) {
+        o.R = { s: { SO: 0.3, IO: 1.15 } };
+        o.L = { s: { SO: 0.4, IO: 1.15 } };
+        o.fixPref = 'R'; o.fusion = { h: 2, v: 1 }; o.posture = { pitch: -15 };
+      }),
+      history: 'A 33-year-old after a motorcycle crash with loss of consciousness. Double, tilted images when reading; comfortable when looking up.',
+      summary: 'Both superior obliques are weak. The hypertropia reverses with gaze and with tilt, there is a V-pattern esotropia, and the excyclotorsion is large.',
+      signs: [
+        'Little vertical deviation in primary position',
+        'Right hypertropia in left gaze, left hypertropia in right gaze',
+        'Right hypertropia on right tilt, left hypertropia on left tilt',
+        'V pattern: an esotropia appears in downgaze',
+        'Excyclotorsion of 10° or more in downgaze: both images tilt',
+        'Chin-down head posture'
+      ],
+      localise: 'Typically a severe closed head injury, because the two nerves cross in the anterior medullary velum. Also dorsal midbrain lesions.',
+      pitfall: 'When asymmetric it passes for a unilateral palsy. Always test both tilts and both side gazes.'
+    },
+    {
+      id: 'cn3p', name: 'Oculomotor (CN III) palsy, pupil involved', short: 'Down and out, ptosis, dilated pupil', group: 'nerve',
+      sided: true, site: 'cn3',
+      build: build(function (o, S, O) {
+        o[S] = {
+          s: { MR: 0.05, SR: 0.05, IR: 0.05, IO: 0.05 }, lid: { ptosis: 0.95 },
+          pupil: 7.4, pupilFixed: true, vmax: { ad: 90, up: 90, down: 90 }
+        };
+        o.fixPref = O; o.fusion = { h: 1, v: 0.5 };
+      }),
+      history: 'A 52-year-old with a sudden severe headache behind one eye, followed within hours by a drooping lid.',
+      summary: 'A complete third nerve palsy with a dilated pupil. Treat it as compressive until proven otherwise.',
+      signs: [
+        'Complete ptosis of the {S} lid. Lift the lids to examine the eye',
+        'The {S} eye rests down and out',
+        'No adduction, elevation or depression. Abduction is intact (CN VI)',
+        'Dilated {S} pupil',
+        'The eye still depresses a little and intorts on downgaze: CN IV is working',
+        'With the lid lifted: crossed diplopia with a vertical element'
+      ],
+      localise: 'A posterior communicating artery aneurysm must be excluded urgently with CT or MR angiography. Also uncal herniation, tumour and trauma. The pupil fibres run on the surface of the nerve, so compression reaches them early.',
+      pitfall: 'A normal pupil is reassuring only when the external palsy is complete. A partial palsy with a normal pupil can still be an aneurysm.'
+    },
+    {
+      id: 'cn3s', name: 'Oculomotor (CN III) palsy, pupil spared', short: 'Down and out, ptosis, normal pupil', group: 'nerve',
+      sided: true, site: 'cn3',
+      build: build(function (o, S, O) {
+        o[S] = {
+          s: { MR: 0.05, SR: 0.05, IR: 0.05, IO: 0.05 }, lid: { ptosis: 0.92 },
+          vmax: { ad: 90, up: 90, down: 90 }
+        };
+        o.fixPref = O; o.fusion = { h: 1, v: 0.5 };
+      }),
+      history: 'A 71-year-old with diabetes and hypertension. Aching around one eye for two days, then the lid dropped.',
+      summary: 'A complete external third nerve palsy with a normal pupil: the microvascular pattern.',
+      signs: [
+        'Marked ptosis of the {S} lid. Lift the lids to examine the eye',
+        'The {S} eye rests down and out, with no adduction, elevation or depression',
+        'The pupils are equal',
+        'Abduction is full, and the eye intorts on attempted downgaze',
+        'With the lid lifted: crossed diplopia with a vertical element'
+      ],
+      localise: 'Ischaemia of the core of the nerve in diabetes or hypertension spares the superficial pupil fibres. Often painful at onset; recovers within about three months.',
+      pitfall: 'An incomplete palsy, or a pupil that is only relatively spared, still needs angiography. Consider giant cell arteritis in the elderly. Myasthenia can imitate any pupil-sparing pattern.'
+    },
+
+    {
+      id: 'ino', name: 'Internuclear ophthalmoplegia', short: 'Adduction fails on gaze, not on convergence', group: 'brainstem',
+      sided: true, site: 'mlf',
+      sideNote: 'the side of the eye that fails to adduct',
+      build: build(function (o, S, O, sg) {
+        o[S] = { ino: 0.3, vmax: { ad: 70 } };
+        o.fixPref = O; o.fusion = { h: 3, v: 1.5 };
+        o.nystagmus = [abductingNystagmus(O, -sg)];
+      }),
+      history: 'A 29-year-old with a week of blurred and double vision on looking to one side. Last year her legs were numb for a month.',
+      summary: 'A lesion of the medial longitudinal fasciculus. The eye on the side of the lesion adducts poorly on lateral gaze, yet converges normally.',
+      signs: [
+        'The {S} eye adducts slowly and incompletely on {O} gaze',
+        'The {O} eye shows abducting nystagmus on {O} gaze',
+        'Convergence is intact: both eyes adduct to a near target',
+        'Straight in primary position',
+        'Best seen with saccades. Tap to the {O} and watch the {S} eye lag',
+        'Crossed diplopia on gaze away from the lesion'
+      ],
+      localise: 'The MLF on the side of the adduction deficit, between the abducens nucleus in the pons and the oculomotor nucleus in the midbrain. Demyelination in the young, often bilateral. Brainstem stroke in older patients.',
+      pitfall: 'Myasthenia can produce a pseudo-INO. A medial rectus weakness from a partial third nerve palsy would lose convergence as well.'
+    },
+    {
+      id: 'webino', name: 'Bilateral INO (WEBINO)', short: 'Wall-eyed, neither eye adducts', group: 'brainstem',
+      sided: false, site: 'mlf',
+      build: build(function (o) {
+        o.R = { ino: 0.25, vmax: { ad: 70 } };
+        o.L = { ino: 0.25, vmax: { ad: 70 } };
+        o.verg = { bias: -6, gain: 0.3, max: 6 }; o.fusion = { h: 0, v: 0 }; o.fixPref = 'alt';
+        o.nystagmus = [abductingNystagmus('R', 1), abductingNystagmus('L', -1)];
+      }),
+      history: 'A 34-year-old with known multiple sclerosis and new double vision in every direction except straight up and down.',
+      summary: 'Both medial longitudinal fasciculi are affected. Neither eye adducts on lateral gaze and the eyes rest in exotropia: wall-eyed bilateral INO.',
+      signs: [
+        'Exotropia in primary position',
+        'The right eye fails to adduct on left gaze, the left eye on right gaze',
+        'Abducting nystagmus in each eye in turn',
+        'Convergence is lost',
+        'Vertical gaze is full'
+      ],
+      localise: 'Bilateral MLF lesions, usually near the midbrain. Multiple sclerosis and brainstem stroke.',
+      pitfall: 'A comitant exotropia has full adduction on versions. Bilateral medial rectus weakness from myasthenia can look identical.'
+    },
+    {
+      id: 'oneandahalf', name: 'One-and-a-half syndrome', short: 'Only one eye abducts', group: 'brainstem',
+      sided: true, site: 'ponsmlf',
+      sideNote: 'the side of the gaze palsy, which is the side of the lesion',
+      build: build(function (o, S, O, sg) {
+        o.nuclear = sg > 0 ? { right: 0.03, bias: -8 } : { left: 0.03, bias: 8 };
+        o[S] = { ino: 0.05 };
+        o.fixPref = S; o.fusion = { h: 2, v: 1.5 };
+        o.nystagmus = [abductingNystagmus(O, -sg)];
+      }),
+      history: 'A 63-year-old with sudden double vision and unsteadiness. He says only one eye “still moves sideways”.',
+      summary: 'A pontine lesion takes out the horizontal gaze centre and the MLF on the same side. The only horizontal movement left is abduction of the opposite eye.',
+      signs: [
+        'Neither eye moves to the {S}: the “one”',
+        'The {S} eye does not adduct on {O} gaze: the “half”',
+        'The {O} eye abducts, with nystagmus',
+        'The {O} eye sits outward in primary position (paralytic pontine exotropia)',
+        'Vertical gaze and convergence are spared',
+        'The doll’s head manoeuvre does not bring the eyes to the {S}'
+      ],
+      localise: 'The dorsal pontine tegmentum on the side of the gaze palsy: PPRF or abducens nucleus, plus the MLF beside it. Stroke, demyelination, tumour.',
+      pitfall: 'With a facial palsy it becomes “eight-and-a-half”. Myasthenia and Miller Fisher syndrome can imitate it.'
+    },
+    {
+      id: 'gaze', name: 'Horizontal gaze palsy', short: 'Neither eye looks to one side', group: 'brainstem',
+      sided: true, site: 'pons',
+      sideNote: 'the side the eyes cannot look toward',
+      build: build(function (o, S, O, sg) {
+        o.nuclear = sg > 0 ? { right: 0.04, bias: -3 } : { left: 0.04, bias: 3 };
+        o.fixPref = 'alt'; o.fusion = { h: 5, v: 2 }; o.posture = { yaw: sg * 16 };
+      }),
+      history: 'A 58-year-old after a pontine haemorrhage. He turns his head rather than his eyes to look to one side. No double vision.',
+      summary: 'Neither eye moves to one side. Both are affected equally, so they stay aligned and there is no diplopia.',
+      signs: [
+        'No saccade or pursuit to the {S} in either eye',
+        'The eyes stay aligned in every position: no movement on cover test',
+        'Vertical gaze and convergence are normal',
+        'The doll’s head manoeuvre does not overcome it, so the lesion is nuclear',
+        'Face turned to the {S}'
+      ],
+      localise: 'The abducens nucleus or PPRF on the side of the palsy. The nucleus holds both the abducens motor neurons and the interneurons for the opposite medial rectus, so a nuclear lesion gives a gaze palsy and not an isolated abduction deficit.',
+      pitfall: 'A sixth nerve palsy affects one eye and causes esotropia and diplopia. A frontal lesion gives a gaze preference that the doll’s head manoeuvre overcomes.'
+    },
+    {
+      id: 'parinaud', name: 'Dorsal midbrain (Parinaud) syndrome', short: 'Upgaze palsy with retraction nystagmus', group: 'brainstem',
+      sided: false, site: 'pretectum',
+      build: build(function (o) {
+        o.supra = { up: 0.08 };
+        o.R = { lid: { retraction: 1.9 }, pupil: 5.6 };
+        o.L = { lid: { retraction: 1.9 }, pupil: 5.6 };
+        o.verg = { max: 24 }; o.fusion = { h: 5, v: 2 };
+        o.nystagmus = [{ type: 'convret', amp: 3.2, freq: 2.1, when: function (sol) { return (sol.ver.y - 6) / 10; } }];
+      }),
+      history: 'A 19-year-old with a month of headaches and difficulty looking up.',
+      summary: 'A supranuclear upgaze palsy with convergence-retraction nystagmus, lid retraction and large pupils that react better to near than to light.',
+      signs: [
+        'Upward saccades and pursuit are lost; downgaze is preserved',
+        'On attempted upgaze the eyes jerk inward and retract',
+        'Lid retraction on both sides (Collier sign)',
+        'Mid-dilated pupils',
+        'Doll’s head: tip the chin down and the eyes do elevate. The lesion is supranuclear',
+        'Horizontal alignment is normal'
+      ],
+      localise: 'Pretectum and posterior commissure. Pineal tumours and hydrocephalus in the young, midbrain stroke or haemorrhage in older adults, and shunt failure.',
+      pitfall: 'Bilateral limitation of elevation in thyroid eye disease or myasthenia does not improve with the doll’s head manoeuvre and has no retraction nystagmus.'
+    },
+    {
+      id: 'psp', name: 'Progressive supranuclear palsy', short: 'Slow vertical saccades, downgaze worst', group: 'brainstem',
+      sided: false, site: 'rimlf',
+      build: build(function (o) {
+        o.supra = { up: 0.35, down: 0.1, right: 0.85, left: 0.85 };
+        var eye = { lid: { retraction: 1.3 }, vmax: { ab: 190, ad: 190, up: 45, down: 45 } };
+        o.R = eye; o.L = JSON.parse(JSON.stringify(eye));
+        o.verg = { gain: 0.7, max: 12 }; o.fusion = { h: 6, v: 2 }; o.blinkEvery = 13;
+        o.nystagmus = [{ type: 'swj', amp: 1.6, freq: 0.7, when: function (sol) { return Math.abs(sol.ox) + Math.abs(sol.oy) < 8 ? 1 : 0; } }];
+      }),
+      history: 'A 68-year-old with repeated backward falls, trouble reading, and difficulty seeing the food on his plate.',
+      summary: 'A supranuclear vertical gaze palsy. Vertical saccades are slow and small, downgaze first, and the vestibulo-ocular reflex overcomes the limitation.',
+      signs: [
+        'Downward saccades are slow and very limited; upgaze is reduced too',
+        'Horizontal saccades are slowed',
+        'Doll’s head: moving the head gives a full vertical range',
+        'Square-wave jerks in primary position',
+        'A staring look: lid retraction and infrequent blinking',
+        'Convergence is poor'
+      ],
+      localise: 'A tauopathy of the rostral midbrain (riMLF) and basal ganglia. Falls, axial rigidity and dysarthria complete the picture.',
+      pitfall: 'Limited upgaze alone is common in healthy older people. Downgaze palsy and slow saccades are what count. Parinaud syndrome spares downgaze.'
+    },
+    {
+      id: 'skew', name: 'Skew deviation', short: 'Comitant hypertropia with ocular tilt', group: 'brainstem',
+      sided: true, site: 'otolith',
+      sideNote: 'the higher eye',
+      build: build(function (o, S, O, sg) {
+        o[S] = { vOffset: 3, tOffset: -5 };
+        o[O] = { vOffset: -3, tOffset: 7 };
+        o.fixPref = O; o.fusion = { h: 3, v: 1.2 }; o.posture = { roll: -sg * 12 };
+      }),
+      history: 'A 60-year-old with acute vertigo, vomiting, an unsteady gait and vertical double vision.',
+      summary: 'A vertical misalignment from a lesion of the otolith–ocular pathway. It is roughly comitant and comes with torsion and a head tilt: the ocular tilt reaction.',
+      signs: [
+        '{Sc} hypertropia that is much the same in right and left gaze',
+        'It hardly changes with head tilt to either side',
+        'Head tilted toward the lower ({O}) eye',
+        'The higher eye is incyclotorted, the opposite of a fourth nerve palsy',
+        'Ductions are full'
+      ],
+      localise: 'Brainstem or cerebellum, less often the labyrinth. The utricular pathway crosses in the pons: a lesion below it lowers the eye on that side, a lesion above it (midbrain, MLF) raises it. It often accompanies an INO.',
+      pitfall: 'A fourth nerve palsy has excyclotorsion of the higher eye and a positive tilt test. The upright–supine test helps: a skew halves when the patient lies down.'
+    },
+
+    {
+      id: 'mg', name: 'Ocular myasthenia gravis', short: 'Fatigable ptosis and variable weakness', group: 'muscle',
+      sided: false, site: 'nmj',
+      build: build(function (o) {
+        o.R = { s: { MR: 0.72, SR: 0.75 }, fatigable: { SR: 0.4, MR: 0.3, IO: 0.2 }, lid: { ptosis: 0.3, fatigue: 0.5 } };
+        o.L = { s: { LR: 0.86, IR: 0.88 }, fatigable: { LR: 0.15 }, lid: { ptosis: 0.1, fatigue: 0.3 } };
+        o.fixPref = 'L'; o.fusion = { h: 2.5, v: 1.2 };
+        o.fatigue = { rise: 7, recover: 9 }; o.cogan = true;
+      }),
+      history: 'A 36-year-old whose lid droops and vision doubles in the evening. She is fine in the morning.',
+      summary: 'Fatigable, variable weakness of the lids and extraocular muscles that follows no single nerve. The pupils are always normal.',
+      signs: [
+        'Asymmetric ptosis that deepens on sustained upgaze. Hold the target up for ten seconds',
+        'Cogan lid twitch: the lid overshoots when the eyes return from downgaze',
+        'Weakness that fits no nerve: here adduction and elevation of the right eye',
+        'The deviation grows as the muscles tire and recovers with rest',
+        'Pupils are normal'
+      ],
+      localise: 'Antibodies against the acetylcholine receptor at the neuromuscular junction. Ice test, rest test, antibodies and single-fibre EMG. Image the thymus.',
+      pitfall: 'It can imitate an INO, a pupil-sparing third, a sixth or a gaze palsy. Variability and fatigue are the clue.'
+    },
+    {
+      id: 'cpeo', name: 'Chronic progressive external ophthalmoplegia', short: 'Symmetric ptosis, eyes barely move', group: 'muscle',
+      sided: false, site: 'myopathy',
+      build: build(function (o) {
+        var eye = {
+          s: { LR: 0.4, MR: 0.4, SR: 0.4, IR: 0.4, SO: 0.4, IO: 0.4 }, lid: { ptosis: 0.52 }, browLift: 2.4,
+          vmax: { ab: 110, ad: 110, up: 110, down: 110 }
+        };
+        o.R = eye; o.L = JSON.parse(JSON.stringify(eye));
+        o.fusion = { h: 6, v: 2 }; o.posture = { pitch: 10 }; o.blinkEvery = 5;
+      }),
+      history: 'A 44-year-old whose lids have drooped slowly over ten years. She turns her head to look around. No double vision.',
+      summary: 'A slowly progressive, symmetric loss of eye movement in all directions with bilateral ptosis. There is usually no diplopia.',
+      signs: [
+        'Symmetric ptosis on both sides, raised brows and a chin-up posture',
+        'Gaze is limited in every direction, equally in both eyes',
+        'Saccades are slow',
+        'The eyes stay aligned, so there is little or no diplopia',
+        'The doll’s head manoeuvre does not help, and nothing fatigues or varies',
+        'Pupils are normal'
+      ],
+      localise: 'A mitochondrial myopathy of the extraocular muscles. Kearns–Sayre syndrome adds pigmentary retinopathy and heart block, so request an ECG.',
+      pitfall: 'Myasthenia varies and fatigues. Oculopharyngeal dystrophy adds dysphagia. PSP improves with the doll’s head manoeuvre.'
+    },
+
+    {
+      id: 'ted', name: 'Thyroid eye disease', short: 'Lid retraction, tight inferior rectus', group: 'mechanical',
+      sided: true, site: 'tedmuscle',
+      sideNote: 'the eye with the greater restriction', sideAlso: 'B',
+      build: build(function (o, S, O) {
+        o[S] = { limits: { up: [-2, -10], ab: 28, soft: 0.25 }, lid: { retraction: 2.3, lower: 0.8, lag: 0.6 }, globe: 'proptosis' };
+        o[O] = { limits: { up: [24, 18], soft: 0.3 }, lid: { retraction: 1.7, lower: 0.5, lag: 0.6 }, globe: 'proptosis' };
+        o.fixPref = O; o.fusion = { h: 2.5, v: 1 }; o.posture = { pitch: 10 }; o.blinkEvery = 7;
+      }),
+      history: 'A 48-year-old smoker with gritty, staring eyes and vertical double vision on waking and on looking up.',
+      summary: 'A restrictive myopathy. Tight inferior and medial recti limit elevation and abduction, and lid retraction with proptosis gives the diagnosis away.',
+      signs: [
+        'Lid retraction on both sides, with lid lag on downgaze',
+        'Proptosis',
+        '{Sc} hypotropia that increases in upgaze. Elevation is limited, most in abduction',
+        'Abduction of the {S} eye is mildly limited by a tight medial rectus',
+        'Chin-up head posture',
+        'Saccades run at normal speed and stop abruptly: restriction, not paresis'
+      ],
+      localise: 'Autoimmune inflammation and later fibrosis of the muscle bellies, in the order inferior, medial, superior, lateral rectus. Forced duction is positive and the intraocular pressure rises on upgaze. Watch for compressive optic neuropathy.',
+      pitfall: 'Limited elevation looks like a superior rectus palsy, but the fault lies in the tight antagonist. Myasthenia coexists in a few percent: suspect it when ptosis or an exotropia appears.'
+    },
+    {
+      id: 'blowout', name: 'Orbital floor fracture', short: 'Tethered inferior rectus after trauma', group: 'mechanical',
+      sided: true, site: 'floor',
+      build: build(function (o, S, O) {
+        o[S] = { limits: { up: 8, down: 16, soft: 0.12 }, globe: 'enophthalmos', bruise: true };
+        o.fixPref = O; o.fusion = { h: 3, v: 1.5 };
+      }),
+      history: 'A 24-year-old punched in the eye yesterday. Double vision looking up and down, with a numb cheek and upper teeth.',
+      summary: 'The inferior rectus or the tissue around it is caught in a fracture of the orbital floor. Elevation is tethered and depression is weak.',
+      signs: [
+        'Straight in primary position',
+        'The {S} eye has limited elevation and limited depression',
+        'Vertical diplopia in upgaze and again in downgaze',
+        'Enophthalmos and bruising around the {S} eye',
+        'Numbness of the cheek in the territory of the infraorbital nerve'
+      ],
+      localise: 'Blunt trauma from an object larger than the orbital rim. In children a trapdoor fracture, with a quiet white eye and nausea or bradycardia on upgaze, needs urgent release.',
+      pitfall: 'Early limitation can be oedema or haematoma and may settle. A forced duction test and CT separate entrapment from muscle contusion or nerve injury.'
+    },
+    {
+      id: 'brown', name: 'Brown syndrome', short: 'No elevation in adduction', group: 'mechanical',
+      sided: true, site: 'trochlea',
+      build: build(function (o, S, O, sg) {
+        o[S] = { limits: { up: [-4, 32], soft: 0.1 } };
+        o.fixPref = O; o.fusion = { h: 4, v: 2 }; o.posture = { pitch: 8, yaw: -sg * 8 };
+      }),
+      history: 'A 6-year-old whose parents notice that one eye “stays behind” when she looks up toward her nose. She has no complaints.',
+      summary: 'The superior oblique tendon cannot slide through the trochlea, so the eye cannot elevate when it is adducted.',
+      signs: [
+        'The {S} eye does not elevate in adduction',
+        'Elevation improves in the midline and is near normal in abduction',
+        'Straight in primary position, with a small downshoot in adduction',
+        'The superior oblique does not overact',
+        'Chin up, with the face turned slightly to the {O}'
+      ],
+      localise: 'A congenitally short or tight tendon sheath, or acquired from inflammation of the trochlea (rheumatoid arthritis, sinusitis), trauma or surgery. Forced duction is positive when the adducted eye is elevated.',
+      pitfall: 'An inferior oblique palsy also limits elevation in adduction, but it has superior oblique overaction, an A pattern and a positive head tilt test.'
+    },
+    {
+      id: 'duane', name: 'Duane retraction syndrome, type 1', short: 'No abduction, globe retracts on adduction', group: 'mechanical',
+      sided: true, site: 'dysinnervation',
+      build: build(function (o, S, O, sg) {
+        o[S] = { limits: { ab: -4, ad: 38, soft: 0.08 }, shoot: 0.45, retract: 0.9, vmax: { ab: 160 } };
+        o.fixPref = O; o.fusion = { h: 3, v: 2 }; o.suppression = true; o.posture = { yaw: sg * 12 };
+      }),
+      history: 'A 7-year-old referred from school screening because one eye does not move outward. She has always held her face slightly turned.',
+      summary: 'A congenital miswiring: the lateral rectus is innervated by the oculomotor nerve. Abduction is limited and the globe retracts on adduction.',
+      signs: [
+        'The {S} eye barely abducts',
+        'On adduction the {S} globe retracts and the palpebral fissure narrows',
+        'Upshoot or downshoot of the {S} eye in adduction',
+        'Only a small esotropia in primary position, far less than the abduction deficit suggests',
+        'Face turned to the {S}, and no complaint of diplopia'
+      ],
+      localise: 'The abducens nucleus and nerve are absent and a branch of CN III supplies the lateral rectus: a congenital cranial dysinnervation disorder. More often the left eye and more often girls. Check hearing and the cervical spine.',
+      pitfall: 'A sixth nerve palsy has a large esotropia in primary position and no retraction.'
+    },
+    {
+      id: 'med', name: 'Monocular elevation deficiency', short: 'One eye cannot look up in any gaze', group: 'mechanical',
+      sided: true, site: 'elevators',
+      build: build(function (o, S, O) {
+        o[S] = { s: { SR: 0.3, IO: 0.35 }, limits: { up: 12, soft: 0.2 }, lid: { ptosis: 0.22 } };
+        o.fixPref = O; o.fusion = { h: 3, v: 1 }; o.suppression = true; o.posture = { pitch: 12 };
+      }),
+      history: 'A 5-year-old with one eye lower than the other and a drooping lid since birth. She lifts her chin to look at people.',
+      summary: 'One eye cannot elevate in any position of gaze: in abduction, in the midline or in adduction. Formerly called double elevator palsy.',
+      signs: [
+        '{Sc} hypotropia in primary position that increases in upgaze',
+        'Elevation is limited equally in abduction and in adduction',
+        'Ptosis or pseudoptosis on the {S}: the lid follows the low eye',
+        'Chin-up head posture',
+        'Horizontal movements and depression are normal'
+      ],
+      localise: 'One of three mechanisms: a tight inferior rectus, a weak superior rectus, or a supranuclear deficit with Bell phenomenon preserved. Usually congenital.',
+      pitfall: 'Brown syndrome spares elevation in abduction. Orbital floor fracture and thyroid eye disease also limit elevation, so look for their other signs. Pseudoptosis disappears when the low eye takes up fixation.'
+    }
+  ];
+
+  var BY_ID = {};
+  LIST.forEach(function (c) { BY_ID[c.id] = c; });
+
+  function fill(text, side) {
+    var S = side === 'L' ? 'left' : 'right', O = side === 'L' ? 'right' : 'left';
+    function capWord(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
+    return text.replace(/\{Sc\}/g, capWord(S)).replace(/\{Oc\}/g, capWord(O)).replace(/\{S\}/g, S).replace(/\{O\}/g, O);
+  }
+
+  CG.conditions = { list: LIST, byId: BY_ID, groups: GROUPS, sites: SITES, fill: fill };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* Cardinal Gaze — the patient's face, drawn on a canvas.
+   Face coordinates are millimetres, origin midway between the eyes, +x to screen right, +y down.
+   We look at the patient, so the patient's RIGHT eye is on the screen's LEFT. */
+(function (root) {
+  'use strict';
+  var CG = (root.CG = root.CG || {});
+  var DEG = Math.PI / 180, TAU = Math.PI * 2;
+  var R_ROT = 11.5;      // how far the pupil travels per unit sine of rotation
+  var IRIS_R = 5.9;
+  var PIVOT_Y = 12;      // head tilt pivots just below the eyes, so both stay in frame
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function rgba(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+  var LOOKS = [
+    { id: 'hazel', skin: '#E3B596', shade: '#B97E61', light: '#F6D8C2', blush: '#E08F80', lip: '#C26E66',
+      hair: '#4B2E22', brow: '#4A2F22', lash: '#231612', iris: ['#7B7A45', '#B79A52', '#3D3B22'] },
+    { id: 'blue', skin: '#F0D0BC', shade: '#CF9F88', light: '#FBE8DB', blush: '#EBA79C', lip: '#CF8580',
+      hair: '#B98D58', brow: '#93714A', lash: '#3A2A20', iris: ['#5E88A6', '#A9C8D9', '#2B4A63'] },
+    { id: 'brown', skin: '#C69170', shade: '#99684A', light: '#DDB092', blush: '#C77C68', lip: '#A85F55',
+      hair: '#1F1917', brow: '#241B17', lash: '#120D0B', iris: ['#6A4226', '#96683C', '#352010'] },
+    { id: 'deep', skin: '#8A5B40', shade: '#63402C', light: '#A77658', blush: '#955444', lip: '#7C4338',
+      hair: '#15100E', brow: '#15100E', lash: '#0B0807', iris: ['#4C2F1C', '#70482A', '#24150C'] },
+    { id: 'green', skin: '#E9C3A8', shade: '#C28D72', light: '#F8DFCC', blush: '#E59886', lip: '#C9736B',
+      hair: '#7A3B22', brow: '#673320', lash: '#2A1912', iris: ['#5D8160', '#A2B878', '#2C4634'] }
+  ];
+
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function makeIris(look) {
+    var c = document.createElement('canvas');
+    c.width = c.height = 256;
+    var g = c.getContext('2d'), R = 128, rnd = rng(7), i;
+    g.translate(R, R);
+    var grad = g.createRadialGradient(0, 0, R * 0.2, 0, 0, R);
+    grad.addColorStop(0, look.iris[1]);
+    grad.addColorStop(0.5, look.iris[0]);
+    grad.addColorStop(0.88, look.iris[2]);
+    grad.addColorStop(1, '#17110d');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(0, 0, R - 1, 0, TAU); g.fill();
+    g.save();
+    g.beginPath(); g.arc(0, 0, R - 2, 0, TAU); g.clip();
+    for (i = 0; i < 120; i++) {
+      var an = rnd() * TAU, r0 = R * (0.26 + rnd() * 0.2), r1 = R * (0.72 + rnd() * 0.24);
+      g.strokeStyle = rnd() > 0.5 ? rgba(look.iris[1], 0.16 + rnd() * 0.2) : rgba(look.iris[2], 0.14 + rnd() * 0.2);
+      g.lineWidth = 1 + rnd() * 2.6;
+      g.beginPath();
+      g.moveTo(Math.cos(an) * r0, Math.sin(an) * r0);
+      g.lineTo(Math.cos(an + (rnd() - 0.5) * 0.08) * r1, Math.sin(an + (rnd() - 0.5) * 0.08) * r1);
+      g.stroke();
+    }
+    // collarette
+    g.strokeStyle = rgba(look.iris[1], 0.5);
+    g.lineWidth = 5;
+    g.beginPath();
+    for (i = 0; i <= 60; i++) {
+      var a2 = (i / 60) * TAU, rr = R * (0.4 + 0.03 * Math.sin(a2 * 9) + 0.015 * Math.sin(a2 * 23));
+      if (i) g.lineTo(Math.cos(a2) * rr, Math.sin(a2) * rr); else g.moveTo(Math.cos(a2) * rr, Math.sin(a2) * rr);
+    }
+    g.stroke();
+    g.restore();
+    // limbal ring
+    g.strokeStyle = 'rgba(20,14,10,0.55)';
+    g.lineWidth = 9;
+    g.beginPath(); g.arc(0, 0, R - 6, 0, TAU); g.stroke();
+    return c;
+  }
+
+  function Face(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.W = 0; this.H = 0; this.dpr = 1;
+    this.eyeScreen = { R: { x: 0, y: 0 }, L: { x: 0, y: 0 } };
+    this.setLook(LOOKS[0]);
+    this.resize();
+  }
+
+  Face.prototype.setLook = function (look) {
+    this.look = look;
+    this.irisTex = makeIris(look);
+  };
+
+  Face.prototype.resize = function () {
+    var r = this.canvas.getBoundingClientRect();
+    var dpr = Math.min(root.devicePixelRatio || 1, 2.5);
+    var w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+    if (w !== this.W || h !== this.H || dpr !== this.dpr) {
+      this.W = w; this.H = h; this.dpr = dpr;
+      this.canvas.width = Math.round(w * dpr);
+      this.canvas.height = Math.round(h * dpr);
+    }
+    this.scale = Math.min(w / 128, h / 62, 9);       // px per mm
+    this.cx = w / 2;
+    this.cy = h * 0.47;                              // the eye line
+    // Gaze space. The nine positions sit clear of the eyes: lateral targets beyond the outer
+    // canthus, the centre a little below the eye line. Past 30° / 25° the scale is compressed
+    // so that a drag to the edge of the screen still reaches the limit of the normal range.
+    var sc = this.scale;
+    this.padY = this.cy + Math.min(10 * sc, h * 0.09);
+    this.h30 = Math.min(54 * sc, w / 2 - 26);
+    this.hMax = Math.min(w / 2 - 8, this.h30 + 50);
+    this.v25 = Math.max(30, Math.min(33 * sc, this.padY - 66, h - this.padY - 30));
+    this.vMax = this.v25 + 18;
+  };
+
+  function toPx(a, a1, a2, p1, p2) {
+    var m = Math.abs(a), s = a < 0 ? -1 : 1;
+    return s * (m <= a1 ? m / a1 * p1 : p1 + (Math.min(m, a2) - a1) / (a2 - a1) * (p2 - p1));
+  }
+  function toAngle(p, a1, a2, p1, p2) {
+    var m = Math.abs(p), s = p < 0 ? -1 : 1;
+    return s * (m <= p1 ? m / p1 * a1 : Math.min(a2, a1 + (m - p1) / (p2 - p1) * (a2 - a1)));
+  }
+  Face.prototype.angleToScreen = function (tx, ty) {
+    return { x: this.cx - toPx(tx, 30, 45, this.h30, this.hMax), y: this.padY - toPx(ty, 25, 35, this.v25, this.vMax) };
+  };
+  Face.prototype.screenToAngle = function (x, y) {
+    return { tx: toAngle(this.cx - x, 30, 45, this.h30, this.hMax), ty: toAngle(this.padY - y, 25, 35, this.v25, this.vMax) };
+  };
+
+  /* frame: output of Sim.step. view: { bg, head:{yaw,pitch,roll}, light:{x,y}, cover:{R,L} 0..1,
+     seeThrough, target:{tx,ty,near,show}, guide:{show,labels} } */
+  Face.prototype.draw = function (frame, view) {
+    var ctx = this.ctx, s = this.scale, L = this.look, self = this;
+    var head = view.head || { yaw: 0, pitch: 0, roll: 0 };
+    var sy = Math.sin(head.yaw * DEG), cyw = Math.cos(head.yaw * DEG);
+    var sp = Math.sin(head.pitch * DEG), cp = Math.cos(head.pitch * DEG);
+    // Pseudo-3D: z is how far a feature stands proud of the eye plane.
+    function P(x, y, z) { return [x * cyw - z * sy, y * cp - z * sp]; }
+    function M(p) { ctx.moveTo(p[0], p[1]); }
+    function C(a, b, c) { ctx.bezierCurveTo(a[0], a[1], b[0], b[1], c[0], c[1]); }
+    function Q(a, b) { ctx.quadraticCurveTo(a[0], a[1], b[0], b[1]); }
+    function glow(p, r, color, alpha, sx) {
+      ctx.save();
+      ctx.translate(p[0], p[1]);
+      ctx.scale(sx || 1, 1);
+      var g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      g.addColorStop(0, rgba(color, alpha));
+      g.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.fillStyle = view.bg || '#C9D6DA';
+    ctx.fillRect(0, 0, this.W, this.H);
+
+    // turning the head also carries the face a little way across the frame
+    var shx = -sy * 20, shy = -sp * 20;
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.scale(s, s);
+    ctx.translate(shx, shy);
+    ctx.translate(0, PIVOT_Y);
+    ctx.rotate(-head.roll * DEG);
+    ctx.translate(0, -PIVOT_Y);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // hair behind, neck, ears
+    var hb = P(0, -34, -70);
+    ctx.fillStyle = L.hair;
+    ctx.beginPath(); ctx.ellipse(hb[0], hb[1], 95, 116, 0, 0, TAU); ctx.fill();
+    var nk = P(0, 92, -62);
+    ctx.fillStyle = L.shade;
+    ctx.fillRect(nk[0] - 40, nk[1], 80, 160);
+    [-1, 1].forEach(function (sd) {
+      var ep = P(sd * 78, 6, -80);
+      ctx.fillStyle = L.shade;
+      ctx.beginPath(); ctx.ellipse(ep[0], ep[1], 9, 18, sd * 0.12, 0, TAU); ctx.fill();
+    });
+
+    function facePath() {
+      ctx.beginPath();
+      M(P(0, -94, -25));
+      C(P(42, -96, -30), P(73, -72, -48), P(75, -25, -52));
+      C(P(77, 10, -52), P(73, 46, -48), P(60, 74, -40));
+      C(P(48, 98, -25), P(22, 112, -8), P(0, 112, -5));
+      C(P(-22, 112, -8), P(-48, 98, -25), P(-60, 74, -40));
+      C(P(-73, 46, -48), P(-77, 10, -52), P(-75, -25, -52));
+      C(P(-73, -72, -48), P(-42, -96, -30), P(0, -94, -25));
+      ctx.closePath();
+    }
+    ctx.fillStyle = L.skin;
+    facePath(); ctx.fill();
+
+    ctx.save();
+    facePath(); ctx.clip();
+    // side falloff
+    var eL = P(-77, 0, -52)[0], eR = P(77, 0, -52)[0];
+    var side = ctx.createLinearGradient(eL, 0, eR, 0);
+    side.addColorStop(0, rgba(L.shade, 0.6)); side.addColorStop(0.2, rgba(L.shade, 0));
+    side.addColorStop(0.8, rgba(L.shade, 0)); side.addColorStop(1, rgba(L.shade, 0.6));
+    ctx.fillStyle = side; ctx.fillRect(-200, -200, 400, 400);
+    glow(P(0, -50, 2), 48, L.light, 0.55, 1.35);          // forehead
+    [-1, 1].forEach(function (sd) {
+      glow(P(sd * 33, -6, -2), 27, L.shade, 0.5, 1.25);   // orbit
+      glow(P(sd * 12, 13, 8), 30, L.shade, 0.26, 0.32);   // flank of the nose
+      glow(P(sd * 33, 14, -2), 12, L.shade, 0.16, 1.7);   // under the eye
+      glow(P(sd * 46, 40, -14), 28, L.blush, 0.3, 1.1);   // cheek
+    });
+    glow(P(0, 16, 16), 30, L.light, 0.42, 0.2);           // dorsum of the nose
+    glow(P(0, 45, 24), 9, L.light, 0.5, 1);               // tip
+    glow(P(0, 57, 14), 9, L.shade, 0.5, 1.8);             // shadow under the tip
+    [-1, 1].forEach(function (sd) {
+      var np = P(sd * 7.5, 53.5, 15);
+      ctx.fillStyle = rgba(L.lash, 0.55);
+      ctx.beginPath(); ctx.ellipse(np[0], np[1], 3.4, 1.9, sd * 0.3, 0, TAU); ctx.fill();
+      glow(P(sd * 13, 49, 9), 7, L.shade, 0.3, 0.7);
+      ctx.strokeStyle = rgba(L.shade, 0.45); ctx.lineWidth = 0.5;
+      ctx.beginPath(); M(P(sd * 13.6, 47, 9)); Q(P(sd * 15.6, 51, 8), P(sd * 12.6, 54.5, 9)); ctx.stroke();
+    });
+    // mouth
+    ctx.fillStyle = L.lip;
+    ctx.beginPath();
+    M(P(-23, 77, 9)); Q(P(-9, 71, 14), P(0, 74, 15)); Q(P(9, 71, 14), P(23, 77, 9));
+    Q(P(0, 92, 14), P(-23, 77, 9));
+    ctx.fill();
+    ctx.strokeStyle = rgba(L.lash, 0.45); ctx.lineWidth = 0.6;
+    ctx.beginPath(); M(P(-23, 77, 9)); Q(P(0, 80, 15), P(23, 77, 9)); ctx.stroke();
+    ctx.restore();
+
+    // eyes
+    var light = view.light || { x: 0, y: 0 };
+    this.drawEye(ctx, 'R', frame.eyes.R, light, P, head);
+    this.drawEye(ctx, 'L', frame.eyes.L, light, P, head);
+
+    // fringe and side hair
+    ctx.fillStyle = L.hair;
+    ctx.beginPath();
+    M(P(-82, -10, -52));
+    C(P(-74, -60, -34), P(-34, -70, -8), P(6, -64, 0));
+    C(P(30, -61, -4), P(64, -58, -30), P(82, -8, -52));
+    C(P(100, -60, -70), P(70, -160, -70), P(0, -160, -70));
+    C(P(-70, -160, -70), P(-100, -60, -70), P(-82, -10, -52));
+    ctx.fill();
+    [-1, 1].forEach(function (sd) {
+      ctx.beginPath();
+      M(P(sd * 78, -30, -50));
+      C(P(sd * 86, 10, -56), P(sd * 82, 52, -56), P(sd * 70, 84, -50));
+      C(P(sd * 92, 96, -70), P(sd * 104, 40, -80), P(sd * 98, -40, -70));
+      ctx.closePath(); ctx.fill();
+    });
+    ctx.restore();
+
+    // screen position of each eye, for the occluder
+    var rr = -head.roll * DEG, cr = Math.cos(rr), sr = Math.sin(rr);
+    ['R', 'L'].forEach(function (k) {
+      var c = P(k === 'R' ? -32 : 32, 0, 0), yy = c[1] - PIVOT_Y;
+      self.eyeScreen[k] = { x: self.cx + s * (shx + c[0] * cr - yy * sr), y: self.cy + s * (shy + c[0] * sr + yy * cr + PIVOT_Y) };
+    });
+
+    this.drawOverlay(ctx, frame, view);
+  };
+
+  Face.prototype.drawEye = function (ctx, key, e, light, P, head) {
+    var L = this.look;
+    var n = key === 'R' ? 1 : -1;                 // nasal direction on screen
+    var c = P(key === 'R' ? -32 : 32, 0, 0);
+    var sxl = Math.cos(head.yaw * DEG) - 0.22 * n * Math.sin(head.yaw * DEG);
+    var syl = Math.cos(head.pitch * DEG);
+    var i;
+
+    ctx.save();
+    ctx.translate(c[0], c[1]);
+    ctx.scale(sxl, syl);
+
+    var ex = -R_ROT * Math.sin(e.x * DEG), ey = -R_ROT * Math.sin(e.y * DEG);
+    var up = -ey;
+    var U = 4.2 + (up > 0 ? up * 0.75 : up * 0.9 * (1 - e.lag)) + e.retraction;
+    var Lo = 5.6 + e.lower + (up < 0 ? -up * 0.45 : -up * 0.12);
+    if (e.globe === 'proptosis') { U += 0.4; Lo += 0.6; }
+    else if (e.globe === 'enophthalmos') { U -= 0.8; Lo -= 0.6; }
+    if (e.ptosis > 0) U = lerp(U, -2.8 + Math.min(0, up) * 0.9, e.ptosis);
+    else U -= e.ptosis * 3.2;
+    if (e.lifted) U = Math.max(U, 4.9 + Math.max(0, up) * 0.75);
+    if (e.squeeze) { U -= Math.max(0, U) * 0.42 * e.squeeze; Lo -= Lo * 0.3 * e.squeeze; }
+    U = lerp(U, -Lo + 0.3, e.blink);
+    U = Math.max(U, -Lo + 0.3);
+
+    var mc = [n * 15.2, 1.5], lc = [-n * 14.3, -0.7];
+    var u1 = [n * 9.5, -U / 0.75 + 0.2], u2 = [-n * 6, -U / 0.75 - 0.4];
+    var l1 = [-n * 7.5, Lo / 0.75 + 0.3], l2 = [n * 7, Lo / 0.75 - 0.7];
+    function upper() { ctx.moveTo(mc[0], mc[1]); ctx.bezierCurveTo(u1[0], u1[1], u2[0], u2[1], lc[0], lc[1]); }
+    function lower() { ctx.bezierCurveTo(l1[0], l1[1], l2[0], l2[1], mc[0], mc[1]); }
+    function bez(p0, p1, p2, p3, t) {
+      var m = 1 - t;
+      return [m * m * m * p0[0] + 3 * m * m * t * p1[0] + 3 * m * t * t * p2[0] + t * t * t * p3[0],
+              m * m * m * p0[1] + 3 * m * m * t * p1[1] + 3 * m * t * t * p2[1] + t * t * t * p3[1]];
+    }
+    function spot(x, y, r, color, alpha, sx) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(sx || 1, 1);
+      var g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      g.addColorStop(0, rgba(color, alpha)); g.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.restore();
+    }
+
+    // brow (lifts when the frontalis compensates for ptosis)
+    var by = -15.6 - (e.browLift || 0) - Math.max(0, e.ptosis) * 1.6;
+    ctx.fillStyle = L.brow;
+    ctx.beginPath();
+    ctx.moveTo(n * 15, by + 1.4);
+    ctx.bezierCurveTo(n * 8, by - 3.6, -n * 6, by - 6.6, -n * 22, by - 0.4);
+    ctx.bezierCurveTo(-n * 10, by - 3.1, n * 4, by - 0.4, n * 14.4, by + 3.8);
+    ctx.closePath(); ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = rgba(L.lash, 0.3); ctx.lineWidth = 0.3;
+    for (i = 0; i < 9; i++) {
+      var bt = 0.08 + i * 0.1;
+      var bp = bez([n * 14.6, by + 2.6], [n * 6, by - 1.9], [-n * 8, by - 4.8], [-n * 21, by - 0.6], bt);
+      ctx.beginPath(); ctx.moveTo(bp[0], bp[1] + 1.4); ctx.lineTo(bp[0] - n * 2.4, bp[1] - 1.6); ctx.stroke();
+    }
+    ctx.restore();
+
+    if (e.bruise) {
+      spot(-n * 5, 9, 14, '#6B3A5E', 0.45, 1.5);
+      spot(-n * 13, -5, 10, '#7A4A3C', 0.35, 1);
+      spot(n * 6, 8, 8, '#8A7A3A', 0.18, 1.4);
+    }
+
+    // the globe, seen through the palpebral fissure
+    ctx.save();
+    ctx.beginPath(); upper(); lower(); ctx.closePath(); ctx.clip();
+    ctx.fillStyle = '#F3EFE9';
+    ctx.fillRect(-19, -13, 38, 26);
+    spot(mc[0], mc[1], 9, '#B9796B', 0.5, 1);
+    spot(lc[0], lc[1], 8, '#9C8478', 0.4, 1);
+    ctx.fillStyle = '#DB8E86';
+    ctx.beginPath(); ctx.ellipse(n * 13.7, 1.3, 2.1, 1.7, 0, 0, TAU); ctx.fill();
+    spot(n * 13.2, 0.8, 1.2, '#F6C9C2', 0.8, 1);
+    if (e.bruise) spot(-n * 10.5, 2.5, 5.5, '#B3261E', 0.9, 1);
+
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.scale(Math.cos(e.x * DEG), Math.cos(e.y * DEG));
+    ctx.rotate(-n * e.t * DEG);
+    ctx.drawImage(this.irisTex, -IRIS_R, -IRIS_R, IRIS_R * 2, IRIS_R * 2);
+    ctx.fillStyle = '#0A0807';
+    ctx.beginPath(); ctx.arc(0, 0, clamp(e.pupil, 1.5, 9) * 0.56, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    // corneal light reflex of the fixation light (Hirschberg)
+    var rx = -R_ROT * (0.553 * Math.sin(e.x * DEG) + 0.379 * Math.sin(light.x * DEG)) + n * 0.3;
+    var ry = -R_ROT * (0.553 * Math.sin(e.y * DEG) + 0.379 * Math.sin(light.y * DEG));
+    spot(rx, ry, 1.9, '#FFFFFF', 0.55, 1);
+    ctx.fillStyle = 'rgba(255,255,255,0.97)';
+    ctx.beginPath(); ctx.arc(rx, ry, 0.72, 0, TAU); ctx.fill();
+
+    // shadow cast by the upper lid
+    ctx.strokeStyle = 'rgba(52,26,18,0.07)'; ctx.lineWidth = 6;
+    ctx.beginPath(); upper(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(52,26,18,0.17)'; ctx.lineWidth = 2.8;
+    ctx.beginPath(); upper(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(120,60,50,0.2)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(lc[0], lc[1]); lower(); ctx.stroke();
+    ctx.restore();
+
+    // lid crease and the lid platform
+    var crease = clamp(-(7.5 + 0.42 * (U - 4.2)), -10.6, -3.4);
+    spot(-n * 1, (crease - U) / 2, 4.6, L.light, 0.3, 2.6);
+    ctx.strokeStyle = rgba(L.shade, 0.85); ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(n * 13.4, -1.6);
+    ctx.bezierCurveTo(n * 8, crease / 0.75 + 1.6, -n * 7, crease / 0.75 + 0.5, -n * 16, -2.6);
+    ctx.stroke();
+
+    // lower lid
+    ctx.strokeStyle = rgba(L.shade, 0.9); ctx.lineWidth = 0.4;
+    ctx.beginPath(); ctx.moveTo(lc[0], lc[1]); lower(); ctx.stroke();
+    ctx.strokeStyle = rgba(L.shade, 0.26); ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(n * 12, Lo * 0.6 + 2.2);
+    ctx.quadraticCurveTo(-n * 1, Lo + 5.4, -n * 13, Lo * 0.5 + 2);
+    ctx.stroke();
+
+    // lash line and lashes
+    ctx.strokeStyle = L.lash; ctx.lineWidth = 0.85;
+    ctx.beginPath(); upper(); ctx.stroke();
+    var open = clamp(0.3 + U / 6, -0.55, 1);
+    ctx.lineWidth = 0.3;
+    for (i = 0; i < 13; i++) {
+      var t = 0.16 + i * 0.064;
+      var p = bez(mc, u1, u2, lc, t);
+      var len = 1.5 + 2 * t, lean = (t - 0.35) * 1.25;
+      var vx = -n * Math.sin(lean) * len, vy = -Math.cos(lean) * len * open;
+      ctx.beginPath();
+      ctx.moveTo(p[0], p[1]);
+      ctx.quadraticCurveTo(p[0] + vx * 0.3, p[1] + vy * 0.75, p[0] + vx, p[1] + vy);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = rgba(L.lash, 0.6); ctx.lineWidth = 0.22;
+    for (i = 0; i < 6; i++) {
+      var t2 = 0.1 + i * 0.09;
+      var p2 = bez(lc, l1, l2, mc, t2);
+      ctx.beginPath(); ctx.moveTo(p2[0], p2[1]); ctx.lineTo(p2[0] - n * (0.7 - t2), p2[1] + 1.1); ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  var YOKES = [
+    { tx: 30, ty: 0, r: 'LR', l: 'MR' }, { tx: -30, ty: 0, r: 'MR', l: 'LR' },
+    { tx: 30, ty: 25, r: 'SR', l: 'IO' }, { tx: -30, ty: 25, r: 'IO', l: 'SR' },
+    { tx: 30, ty: -25, r: 'IR', l: 'SO' }, { tx: -30, ty: -25, r: 'SO', l: 'IR' },
+    { tx: 0, ty: 25 }, { tx: 0, ty: -25 }, { tx: 0, ty: 0 }
+  ];
+
+  Face.prototype.drawOverlay = function (ctx, frame, view) {
+    var self = this, i;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    var k = clamp(this.scale / 3.2, 0.9, 1.7);
+
+    if (view.guide && view.guide.show) {
+      ctx.font = '600 ' + Math.round(10 * Math.min(k, 1.25)) + 'px "IBM Plex Mono", ui-monospace, monospace';
+      ctx.textBaseline = 'middle';
+      for (i = 0; i < YOKES.length; i++) {
+        var y = YOKES[i], p = this.angleToScreen(y.tx, y.ty);
+        ctx.strokeStyle = 'rgba(12,22,28,0.55)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 4.5 * k, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 4.5 * k, 0, TAU); ctx.stroke();
+        if (view.guide.labels && y.r) {
+          var rt = 'R ' + y.r, lt = 'L ' + y.l;
+          var wr = ctx.measureText(rt).width, wl = ctx.measureText(lt).width, pad = 5, gap = 7;
+          var w = wr + wl + gap + pad * 2, h = 17 * Math.min(k, 1.25);
+          var bx = clamp(p.x - w / 2, 4, this.W - w - 4), byy = p.y + (y.ty < 0 ? -h - 9 * k : 9 * k);
+          ctx.fillStyle = 'rgba(12,22,28,0.78)';
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(bx, byy, w, h, 4); else ctx.rect(bx, byy, w, h);
+          ctx.fill();
+          ctx.fillStyle = '#FF9A93'; ctx.fillText(rt, bx + pad, byy + h / 2 + 0.5);
+          ctx.fillStyle = '#7FE0AE'; ctx.fillText(lt, bx + pad + wr + gap, byy + h / 2 + 0.5);
+        }
+      }
+    }
+
+    // occluder
+    ['R', 'L'].forEach(function (key) {
+      var a = view.cover ? view.cover[key] : 0;
+      if (a <= 0.01) return;
+      var c = self.eyeScreen[key], s = self.scale, out = key === 'R' ? -1 : 1;
+      var ease = 1 - Math.pow(1 - a, 3);
+      var x = c.x + out * (1 - ease) * 60 * s, y = c.y + 1 * s;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.globalAlpha = ease;
+      var body = view.seeThrough ? 'rgba(18,28,34,0.5)' : 'rgba(18,26,31,0.97)';
+      ctx.fillStyle = view.seeThrough ? 'rgba(18,28,34,0.62)' : 'rgba(18,26,31,0.97)';
+      ctx.beginPath();
+      ctx.moveTo(out * 12 * s, 14 * s);
+      ctx.lineTo(out * 30 * s, 60 * s);
+      ctx.lineTo(out * 39 * s, 56 * s);
+      ctx.lineTo(out * 20 * s, 10 * s);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = body;
+      ctx.beginPath(); ctx.ellipse(0, 0, 24 * s, 19 * s, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = view.seeThrough ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.14)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(0, 0, 24 * s - 1, 19 * s - 1, 0, 0, TAU); ctx.stroke();
+      ctx.restore();
+    });
+
+    // fixation light
+    var tg = view.target;
+    if (tg && tg.show) {
+      var tp = this.angleToScreen(tg.tx, tg.ty);
+      var kk = k * (1 + 0.9 * (tg.near || 0));
+      var g = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, 24 * kk);
+      g.addColorStop(0, 'rgba(255,250,225,0.85)');
+      g.addColorStop(0.35, 'rgba(255,244,200,0.3)');
+      g.addColorStop(1, 'rgba(255,244,200,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(tp.x, tp.y, 24 * kk, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(12,22,28,0.7)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(tp.x, tp.y, 11 * kk, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#FFFDF2';
+      ctx.beginPath(); ctx.arc(tp.x, tp.y, 4.6 * kk, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(12,22,28,0.85)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(tp.x, tp.y, 4.6 * kk, 0, TAU); ctx.stroke();
+    }
+  };
+
+  CG.Face = Face;
+  CG.looks = LOOKS;
+  CG.yokes = YOKES;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* Cardinal Gaze — the Hess chart and the patient's own view of the target. */
+(function (root) {
+  'use strict';
+  var CG = (root.CG = root.CG || {});
+  var E = CG.engine;
+
+  function f1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+  /* Hess chart. Each field is plotted in the patient's own left/right, so the temporal
+     side of the right eye's field is on the right. */
+  function hessSVG(cfg) {
+    var h = E.hess(cfg);
+    var F = 150, k = F / 64, top = 30, W = 360, H = top + F + 16;
+    var muscles = {
+      R: { tl: 'IO', tr: 'SR', l: 'MR', r: 'LR', bl: 'SO', br: 'IR' },
+      L: { tl: 'SR', tr: 'IO', l: 'LR', r: 'MR', bl: 'IR', br: 'SO' }
+    };
+    function field(key, x0) {
+      var cx = x0 + F / 2, cy = top + F / 2, cls = key === 'R' ? 're' : 'le', m = muscles[key], s = '', d;
+      function X(deg) { return f1(cx + Math.max(-32, Math.min(32, deg)) * k); }
+      function Y(deg) { return f1(cy - Math.max(-32, Math.min(32, deg)) * k); }
+      function poly(pts) { return pts.map(function (p) { return X(p[0]) + ',' + Y(p[1]); }).join(' '); }
+      s += '<rect class="h-bg" x="' + x0 + '" y="' + top + '" width="' + F + '" height="' + F + '" rx="4"/>';
+      for (d = -30; d <= 30; d += 5) {
+        var c = d === 0 ? 'h-grid h-axis' : 'h-grid';
+        s += '<line class="' + c + '" x1="' + X(d) + '" y1="' + Y(-32) + '" x2="' + X(d) + '" y2="' + Y(32) + '"/>';
+        s += '<line class="' + c + '" x1="' + X(-32) + '" y1="' + Y(d) + '" x2="' + X(32) + '" y2="' + Y(d) + '"/>';
+      }
+      s += '<polygon class="h-norm" points="' + poly(h.innerTargets) + '"/>';
+      s += '<polygon class="h-norm" points="' + poly(h.outerTargets) + '"/>';
+      s += '<polygon class="h-field h-' + cls + '" points="' + poly(h[key].outer) + '"/>';
+      s += '<polygon class="h-field h-inner h-' + cls + '" points="' + poly(h[key].inner) + '"/>';
+      h[key].inner.concat(h[key].outer, [h[key].centre]).forEach(function (p) {
+        s += '<circle class="h-dot h-' + cls + '" cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="1.7"/>';
+      });
+      s += '<text class="h-title h-' + cls + '" x="' + cx + '" y="11" text-anchor="middle">' +
+           (key === 'R' ? 'Right eye' : 'Left eye') + '</text>';
+      s += '<text class="h-sub" x="' + cx + '" y="22" text-anchor="middle">' +
+           (key === 'R' ? 'left eye fixing' : 'right eye fixing') + '</text>';
+      var yt = top + 9, yb = top + F - 4, xl = x0 + 4, xr = x0 + F - 4;
+      s += '<text class="h-mus" x="' + xl + '" y="' + yt + '">' + m.tl + '</text>';
+      s += '<text class="h-mus" x="' + xr + '" y="' + yt + '" text-anchor="end">' + m.tr + '</text>';
+      s += '<text class="h-mus" x="' + xl + '" y="' + (cy - 3) + '">' + m.l + '</text>';
+      s += '<text class="h-mus" x="' + xr + '" y="' + (cy - 3) + '" text-anchor="end">' + m.r + '</text>';
+      s += '<text class="h-mus" x="' + xl + '" y="' + yb + '">' + m.bl + '</text>';
+      s += '<text class="h-mus" x="' + xr + '" y="' + yb + '" text-anchor="end">' + m.br + '</text>';
+      return s;
+    }
+    return '<svg class="hess" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Hess chart of both eyes">' +
+      field('L', 14) + field('R', W - 14 - F) +
+      '<text class="h-sub" x="' + (W / 2) + '" y="' + (H - 3) + '" text-anchor="middle">dashed: normal 15° and 30° fields</text>' +
+      '</svg>';
+  }
+
+  /* What the patient sees: one bar of light per eye. Red is the right eye, green the left. */
+  function DiploView(el) {
+    var W = 360, H = 150, k = 6.2, s = '', d;
+    this.k = k; this.cx = W / 2; this.cy = H / 2;
+    s += '<svg class="diplo" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="The target as the patient sees it">';
+    s += '<rect class="d-bg" x="0" y="0" width="' + W + '" height="' + H + '" rx="10"/>';
+    for (d = -25; d <= 25; d += 5) s += '<line class="d-grid" x1="' + (W / 2 + d * k) + '" y1="6" x2="' + (W / 2 + d * k) + '" y2="' + (H - 6) + '"/>';
+    for (d = -10; d <= 10; d += 5) s += '<line class="d-grid" x1="6" y1="' + (H / 2 + d * k) + '" x2="' + (W - 6) + '" y2="' + (H / 2 + d * k) + '"/>';
+    s += '<text class="d-side" x="10" y="' + (H - 9) + '">patient’s left</text>';
+    s += '<text class="d-side" x="' + (W - 10) + '" y="' + (H - 9) + '" text-anchor="end">patient’s right</text>';
+    s += '<g class="d-img d-le"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
+    s += '<g class="d-img d-re"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
+    s += '<g class="d-img d-one"><rect x="-23" y="-3.2" width="46" height="6.4" rx="3.2"/></g>';
+    s += '</svg>';
+    el.innerHTML = s;
+    this.gR = el.querySelector('.d-re');
+    this.gL = el.querySelector('.d-le');
+    this.gOne = el.querySelector('.d-one');
+  }
+
+  DiploView.prototype.update = function (frame, cfg) {
+    var sol = frame.sol, fixKey = sol.fix, f = frame.eyes[fixKey], self = this;
+    function img(key) {
+      var e = frame.eyes[key], sgn = key === 'R' ? 1 : -1, fs = fixKey === 'R' ? 1 : -1;
+      return { x: -(e.errX - f.errX), y: -(e.errY - f.errY), rot: -sgn * e.t + fs * f.t };
+    }
+    function place(g, im, on) {
+      g.style.display = on ? '' : 'none';
+      if (!on) return;
+      var x = Math.max(-26, Math.min(26, im.x)), y = Math.max(-10, Math.min(10, im.y));
+      g.setAttribute('transform', 'translate(' + f1(self.cx + x * self.k) + ' ' + f1(self.cy - y * self.k) + ') rotate(' + f1(im.rot) + ')');
+    }
+    var R = img('R'), L = img('L');
+    var seeR = frame.eyes.R.seeing, seeL = frame.eyes.L.seeing;
+    var sep = Math.abs(R.x - L.x) + Math.abs(R.y - L.y), tilt = Math.abs(R.rot - L.rot);
+    var state;
+    if (!seeR || !seeL) state = 'mono';
+    else if (sep < 0.5 && tilt < 2) state = 'single';
+    else if (cfg.suppression) state = 'suppress';
+    else state = 'double';
+    if (state === 'double') {
+      place(this.gR, R, true); place(this.gL, L, true); place(this.gOne, R, false);
+    } else {
+      place(this.gR, R, false); place(this.gL, L, false);
+      place(this.gOne, { x: 0, y: 0, rot: 0 }, seeR || seeL);
+    }
+    return state;
+  };
+
+  /* Readout of the current deviation, the way a prism cover measurement would report it. */
+  function describe(sol) {
+    var d = sol.dev, out = { h: 'None', v: 'None', t: 'None', hKind: '', vKind: '' };
+    if (Math.abs(d.eso) >= 0.4) {
+      out.hKind = d.eso > 0 ? 'eso' : 'exo';
+      out.h = Math.round(E.prism(d.eso)) + 'Δ ' + out.hKind;
+    }
+    if (Math.abs(d.rHyper) >= 0.4) {
+      out.vKind = d.rHyper > 0 ? 'R' : 'L';
+      out.v = Math.round(E.prism(d.rHyper)) + 'Δ ' + out.vKind + ' hyper';
+    }
+    var parts = [];
+    if (Math.abs(d.tR) >= 1.5) parts.push('R ' + Math.round(Math.abs(d.tR)) + '° ' + (d.tR > 0 ? 'ex' : 'in'));
+    if (Math.abs(d.tL) >= 1.5) parts.push('L ' + Math.round(Math.abs(d.tL)) + '° ' + (d.tL > 0 ? 'ex' : 'in'));
+    if (parts.length) out.t = parts.join(', ');
+    return out;
+  }
+
+  CG.viz = { hessSVG: hessSVG, DiploView: DiploView, describe: describe };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* Cardinal Gaze — screens, examination tools, quiz and progress. */
+(function () {
+  'use strict';
+  var CG = window.CG, E = CG.engine, C = CG.conditions, V = CG.viz;
+  var clamp = E.clamp;
+  var ZERO = { yaw: 0, pitch: 0, roll: 0 };
+
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+  }
+  function pressed(el, on) { (typeof el === 'string' ? $(el) : el).setAttribute('aria-pressed', on ? 'true' : 'false'); }
+
+  /* ---------- per-viewer storage (progress and display options) ---------- */
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem('cg.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('cg.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
+  };
+  function freshStats() { return { cases: 0, points: 0, max: 0, right: 0, streak: 0, best: 0, per: {} }; }
+  var stats = Object.assign(freshStats(), store.get('stats', null) || {});
+  var opts = Object.assign({ seeThrough: true, labels: false }, store.get('opts', null) || {});
+
+  /* ---------- theme colour for the canvas backdrop ---------- */
+  var stageBg = '#C7D5D9';
+  function readTheme() {
+    var v = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
+    if (v) stageBg = v;
+  }
+  readTheme();
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+    new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  } catch (e) { /* older browsers keep the first reading */ }
+
+  /* ---------- state ---------- */
+  var state = {
+    screen: 'home', mode: null, cond: null, side: 'R', cfg: null, sim: null, frame: null,
+    tab: 'info', quiz: null,
+    input: { tx: 0, ty: 0, dist: 600, cover: null, lids: false },
+    headSel: { tilt: 0, doll: false, dollYaw: 0, dollPitch: 0, habitual: false },
+    baseA: { yaw: 0, pitch: 0, roll: 0 }, dollA: { yaw: 0, pitch: 0 },
+    coverAnim: { R: 0, L: 0 }, lastCase: null
+  };
+
+  var stage = $('#stage');
+  var face = new CG.Face(stage);
+  var diplo = new V.DiploView($('#diplo'));
+  var hero = { face: new CG.Face($('#heroCanvas')), sim: new E.Sim(C.byId.normal.build('R')), tx: 0, ty: 0, moved: -1e9 };
+  hero.face.setLook(CG.looks[4]);
+  var reduceMotion = false;
+  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* default */ }
+
+  function show(name) {
+    state.screen = name;
+    $$('.screen').forEach(function (el) { el.hidden = el.id !== name; });
+    if (name === 'home') { updateHome(); hero.face.resize(); }
+    if (name === 'progress') renderProgress();
+    if (name === 'exam') face.resize();
+  }
+
+  /* ---------- home ---------- */
+  function updateHome() {
+    var s = stats;
+    $('#homeStats').textContent = s.cases
+      ? s.cases + (s.cases === 1 ? ' case, ' : ' cases, ') + Math.round(100 * s.right / s.cases) + '% correct, streak ' + s.streak
+      : 'No cases yet';
+  }
+  $('#home').addEventListener('pointermove', function (ev) {
+    var r = hero.face.canvas.getBoundingClientRect();
+    var a = hero.face.screenToAngle(ev.clientX - r.left, ev.clientY - r.top);
+    hero.tx = a.tx; hero.ty = a.ty; hero.moved = performance.now();
+  });
+  function heroFrame(dt, now) {
+    var tx = hero.tx, ty = hero.ty;
+    if (now - hero.moved > 2500) {
+      if (reduceMotion) { tx = 0; ty = 0; }
+      else { var t = now / 1000; tx = 24 * Math.sin(t * 0.55); ty = 11 * Math.sin(t * 0.83 + 1); }
+    }
+    var f = hero.sim.step(dt, { tx: tx, ty: ty, dist: 600, yaw: 0, pitch: 0, roll: 0, cover: null, lidsLifted: false });
+    hero.face.draw(f, { bg: stageBg, head: ZERO, light: { x: f.sol.ox, y: f.sol.oy }, target: { show: false }, guide: { show: false } });
+  }
+
+  /* ---------- condition picker ---------- */
+  function conditionGrid(attr, withShort) {
+    var h = '';
+    C.groups.forEach(function (g) {
+      h += '<p class="group-title">' + esc(g.name) + '</p><div class="cond-grid">';
+      C.list.forEach(function (c) {
+        if (c.group !== g.id) return;
+        h += '<button class="cond" ' + attr + '="' + c.id + '"><b>' + esc(c.name) + '</b>' +
+             (withShort ? '<small>' + esc(c.short) + '</small>' : '') + '</button>';
+      });
+      h += '</div>';
+    });
+    return h;
+  }
+  $('#pickerBody').innerHTML = conditionGrid('data-cond', true);
+  $('#pickerBody').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-cond]');
+    if (!b) return;
+    state.quiz = null;
+    startExam('textbook', C.byId[b.dataset.cond], 'R', CG.looks[Math.floor(Math.random() * CG.looks.length)]);
+  });
+
+  /* ---------- starting an examination ---------- */
+  function hasPosture(cfg) { var p = cfg.posture; return !!(p.yaw || p.pitch || p.roll); }
+  function postureText(p) {
+    var a = [];
+    if (Math.abs(p.yaw) >= 4) a.push('face turned to the ' + (p.yaw > 0 ? 'right' : 'left'));
+    if (Math.abs(p.roll) >= 4) a.push('head tilted to the ' + (p.roll > 0 ? 'right' : 'left'));
+    if (Math.abs(p.pitch) >= 4) a.push(p.pitch > 0 ? 'chin up' : 'chin down');
+    return a.join(', ');
+  }
+
+  function loadPatient(cond, side) {
+    state.cond = cond; state.side = side;
+    state.cfg = cond.build(side);
+    state.sim = new E.Sim(state.cfg);
+    var hp = hasPosture(state.cfg), p = state.cfg.posture;
+    state.input = { tx: 0, ty: 0, dist: 600, cover: null, lids: false };
+    state.headSel = { tilt: 0, doll: false, dollYaw: 0, dollPitch: 0, habitual: hp };
+    state.baseA = hp ? { yaw: p.yaw, pitch: p.pitch, roll: p.roll } : { yaw: 0, pitch: 0, roll: 0 };
+    state.dollA = { yaw: 0, pitch: 0 };
+    state.coverAnim = { R: 0, L: 0 };
+    $('#distRange').value = 0;
+    $('#subHead').hidden = true; $('#subNear').hidden = true;
+  }
+
+  function startExam(mode, cond, side, look) {
+    state.mode = mode;
+    loadPatient(cond, side);
+    face.setLook(look);
+    $('#sheet').hidden = true;
+    $('#exam').classList.remove('panel-open');
+    show('exam');
+    setTab('info', false);
+    updateChrome();
+  }
+
+  /* ---------- examination chrome ---------- */
+  function fmtDist(d) { return d >= 100 ? (Math.round(d / 10) / 10) + ' m' : Math.round(d) + ' cm'; }
+  function distFromSlider(v) { return 600 * Math.pow(5 / 600, v / 100); }
+  function sliderFromDist(d) { return 100 * Math.log(d / 600) / Math.log(5 / 600); }
+
+  function updateChrome() {
+    var hs = state.headSel, inp = state.input, cfg = state.cfg, q = state.quiz;
+    var reveal = state.mode === 'textbook' || (q && q.done);
+    $('#examTitle').textContent = reveal ? state.cond.name : 'Patient ' + q.n;
+    $('#tabInfo').textContent = reveal ? 'Findings' : 'Diagnose';
+    pressed('#btnCoverR', inp.cover === 'R');
+    pressed('#btnCoverL', inp.cover === 'L');
+    pressed('#btnLids', inp.lids);
+    pressed('#btnHead', !$('#subHead').hidden || hs.tilt !== 0 || hs.doll);
+    pressed('#btnNear', !$('#subNear').hidden || inp.dist < 500);
+    $$('#subHead .seg').forEach(function (b) {
+      var k = b.dataset.head;
+      pressed(b, k === 'tiltR' ? hs.tilt === 1 : k === 'tiltL' ? hs.tilt === -1 : k === 'doll' ? hs.doll :
+        k === 'habit' ? hs.habitual : (!hs.tilt && !hs.habitual && !hs.dollYaw && !hs.dollPitch));
+    });
+    $('#segHabit').hidden = !hasPosture(cfg);
+    $$('#subNear .seg').forEach(function (b) { pressed(b, Math.abs(inp.dist - Number(b.dataset.dist)) < 1); });
+    $('#distOut').textContent = fmtDist(inp.dist);
+
+    var chips = [];
+    if (hs.habitual && hasPosture(cfg)) chips.push('Habitual posture: ' + postureText(cfg.posture));
+    if (hs.tilt) chips.push('Head tilted to the ' + (hs.tilt > 0 ? 'right' : 'left') + ' shoulder');
+    if (hs.doll) {
+      var dy = Math.round(hs.dollYaw), dp = Math.round(hs.dollPitch), turn = [];
+      if (Math.abs(dy) >= 3) turn.push('turned ' + (dy > 0 ? 'right ' : 'left ') + Math.abs(dy) + '°');
+      if (Math.abs(dp) >= 3) turn.push('chin ' + (dp > 0 ? 'up ' : 'down ') + Math.abs(dp) + '°');
+      chips.push('Doll’s head: ' + (turn.length ? turn.join(', ') : 'drag to turn the head'));
+    }
+    if (inp.dist < 500) chips.push('Target at ' + fmtDist(inp.dist));
+    if (inp.lids) chips.push('Lids lifted');
+    $('#chips').innerHTML = chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('');
+  }
+
+  function setTab(tab, open) {
+    state.tab = tab;
+    if (open) $('#exam').classList.add('panel-open');
+    $$('.tabs [role="tab"]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'); });
+    $('#paneInfo').hidden = tab !== 'info';
+    $('#paneView').hidden = tab !== 'view';
+    $('#paneHess').hidden = tab !== 'hess';
+    if (tab === 'info') renderInfo();
+    if (tab === 'hess') renderHess();
+    face.resize();
+  }
+  $$('.tabs [role="tab"]').forEach(function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab, false); }); });
+  $$('.top-tab').forEach(function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab, true); }); });
+  $('#panelClose').addEventListener('click', function () { $('#exam').classList.remove('panel-open'); face.resize(); });
+  $('#btnClose').addEventListener('click', function () { show(state.mode === 'textbook' ? 'picker' : 'home'); });
+
+  /* ---------- tools ---------- */
+  function toggleCover(k) { state.input.cover = state.input.cover === k ? null : k; updateChrome(); }
+  $('#btnCoverR').addEventListener('click', function () { toggleCover('R'); });
+  $('#btnCoverL').addEventListener('click', function () { toggleCover('L'); });
+  $('#btnLids').addEventListener('click', function () { state.input.lids = !state.input.lids; updateChrome(); });
+  $('#btnHead').addEventListener('click', function () {
+    $('#subHead').hidden = !$('#subHead').hidden; $('#subNear').hidden = true; updateChrome();
+  });
+  $('#btnNear').addEventListener('click', function () {
+    $('#subNear').hidden = !$('#subNear').hidden; $('#subHead').hidden = true; updateChrome();
+  });
+  $('#subHead').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-head]');
+    if (!b) return;
+    var hs = state.headSel, k = b.dataset.head;
+    if (k === 'tiltR' || k === 'tiltL') {
+      var want = k === 'tiltR' ? 1 : -1;
+      hs.tilt = hs.tilt === want ? 0 : want;
+      hs.habitual = false;
+    } else if (k === 'straight') {
+      hs.tilt = 0; hs.habitual = false; hs.dollYaw = 0; hs.dollPitch = 0;
+    } else if (k === 'doll') {
+      hs.doll = !hs.doll; hs.dollYaw = 0; hs.dollPitch = 0;
+      if (hs.doll) { hs.habitual = false; state.input.tx = 0; state.input.ty = 0; }
+    } else if (k === 'habit') {
+      hs.habitual = true; hs.tilt = 0; hs.doll = false; hs.dollYaw = 0; hs.dollPitch = 0;
+    }
+    updateChrome();
+  });
+  $('#subNear').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-dist]');
+    if (!b) return;
+    state.input.dist = Number(b.dataset.dist);
+    $('#distRange').value = Math.round(sliderFromDist(state.input.dist));
+    updateChrome();
+  });
+  $('#distRange').addEventListener('input', function () {
+    state.input.dist = distFromSlider(Number(this.value));
+    updateChrome();
+  });
+
+  // The fixation light: drag for pursuit, tap elsewhere for a saccade. In doll's head mode a drag turns the head.
+  var drag = null;
+  function stagePoint(ev) { var r = stage.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+  function setTarget(pt) { var a = face.screenToAngle(pt.x, pt.y); state.input.tx = a.tx; state.input.ty = a.ty; }
+  stage.addEventListener('pointerdown', function (ev) {
+    if (ev.button > 0 || !state.sim) return;
+    try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    var pt = stagePoint(ev);
+    drag = { id: ev.pointerId, x0: pt.x, y0: pt.y, yaw0: state.headSel.dollYaw, pitch0: state.headSel.dollPitch };
+    if (!state.headSel.doll) setTarget(pt);
+    ev.preventDefault();
+  });
+  stage.addEventListener('pointermove', function (ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    var pt = stagePoint(ev), hs = state.headSel;
+    if (hs.doll) {
+      hs.dollYaw = clamp(drag.yaw0 - (pt.x - drag.x0) * 0.3, -32, 32);
+      hs.dollPitch = clamp(drag.pitch0 - (pt.y - drag.y0) * 0.3, -25, 25);
+    } else setTarget(pt);
+  });
+  function endDrag(ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    drag = null;
+    if (state.headSel.doll) { updateChrome(); return; }
+    var inp = state.input, best = null, bd = 5.5;
+    CG.yokes.forEach(function (y) {
+      var d = Math.abs(y.tx - inp.tx) + Math.abs(y.ty - inp.ty);
+      if (d < bd) { bd = d; best = y; }
+    });
+    if (best) { inp.tx = best.tx; inp.ty = best.ty; }
+  }
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+  document.addEventListener('keydown', function (ev) {
+    if (state.screen !== 'exam' || !$('#sheet').hidden || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+    var d = { ArrowLeft: [5, 0], ArrowRight: [-5, 0], ArrowUp: [0, 5], ArrowDown: [0, -5] }[ev.key];
+    if (!d) return;
+    state.input.tx = clamp(state.input.tx + d[0], -40, 40);
+    state.input.ty = clamp(state.input.ty + d[1], -32, 32);
+    ev.preventDefault();
+  });
+
+  /* ---------- panel: findings / diagnose ---------- */
+  function textbookHTML(c, side, pickSide) {
+    function f(t) { return esc(C.fill(t, side)); }
+    var h = '';
+    if (pickSide && c.sided) {
+      h += '<div class="sidepick" role="group" aria-label="Affected side">' +
+        '<button data-side="R" aria-pressed="' + (side === 'R') + '">Right side</button>' +
+        '<button data-side="L" aria-pressed="' + (side === 'L') + '">Left side</button></div>';
+    }
+    h += '<h3>' + esc(c.name) + '</h3>';
+    h += '<p class="summary">' + f(c.summary) + '</p>';
+    h += '<p class="label">What to find</p><ul class="findings">' +
+      c.signs.map(function (s) { return '<li>' + f(s) + '</li>'; }).join('') + '</ul>';
+    h += '<p class="label">Where and why</p><p>' + f(c.localise) + '</p>';
+    h += '<p class="label">Do not confuse with</p><p>' + f(c.pitfall) + '</p>';
+    return h;
+  }
+
+  var SIDE_NAME = { R: 'Right', L: 'Left', B: 'Both sides, or not lateralised' };
+
+  function resultHTML(q) {
+    var c = state.cond, r = q.result;
+    function row(ok, main, yours) {
+      return '<div><span class="tick ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓' : '✕') + '</span><dd>' + esc(main) +
+        (ok ? '' : '<small>You answered: ' + esc(yours) + '</small>') + '</dd></div>';
+    }
+    var sideTruth = SIDE_NAME[r.sideTruth] + (c.sided && c.sideNote ? ' (' + c.sideNote + ')' : '');
+    var h = '<div class="result">';
+    h += '<div class="score"><b>' + r.score + '</b><span>of 5 points' + (stats.streak > 1 ? ' · streak ' + stats.streak : '') + '</span></div>';
+    h += '<dl class="marks">';
+    h += row(r.dxOk, c.name, C.byId[q.dx].name);
+    h += row(r.sideOk, sideTruth, SIDE_NAME[q.side]);
+    h += row(r.siteOk, C.sites[c.site], C.sites[q.site]);
+    h += '</dl>';
+    if (q.hess) h += '<p class="note">Hess chart opened before answering: 1 point deducted.</p>';
+    h += '<div class="btn-row"><button class="btn" data-act="next">Next patient</button></div>';
+    h += '<p class="note">The patient is still here. Go back over the signs below.</p>';
+    h += '</div>';
+    return h;
+  }
+
+  function renderInfo() {
+    var el = $('#paneInfo'), c = state.cond, q = state.quiz;
+    if (state.mode === 'textbook') el.innerHTML = textbookHTML(c, state.side, true);
+    else if (q.done) el.innerHTML = resultHTML(q) + textbookHTML(c, state.side, false);
+    else {
+      el.innerHTML = '<div class="history"><p class="label">History</p><p>' + esc(c.history) + '</p></div>' +
+        '<p class="muted">Examine first: reflexes, cover test, nine positions, then whatever the findings call for. ' +
+        'When you are ready, commit to a diagnosis, a side and a site.</p>' +
+        '<div class="btn-row"><button class="btn" data-act="answer">Make the diagnosis</button></div>';
+    }
+    el.scrollTop = 0;
+  }
+  $('#paneInfo').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-side],[data-act]');
+    if (!b) return;
+    if (b.dataset.side) {
+      if (b.dataset.side === state.side) return;
+      loadPatient(state.cond, b.dataset.side);
+      updateChrome(); renderInfo();
+    } else if (b.dataset.act === 'answer') openSheet();
+    else if (b.dataset.act === 'next') newCase();
+  });
+
+  function renderHess() {
+    var el = $('#paneHess'), q = state.quiz;
+    if (state.mode === 'diagnose' && !q.done && !q.hess) {
+      el.innerHTML = '<div class="locked"><p><b>The Hess chart is a strong hint.</b></p>' +
+        '<p class="muted">Opening it before you answer costs 1 of the 5 points for this patient.</p>' +
+        '<button class="btn small" data-act="hess">Show the Hess chart</button></div>';
+      return;
+    }
+    el.innerHTML = V.hessSVG(state.cfg) +
+      '<p class="note">Each field is plotted with the other eye fixing and the eyes dissociated. ' +
+      'A field that is squeezed in one direction marks the limited muscle; the matching bulge in the other field is its overacting yoke.</p>';
+  }
+  $('#paneHess').addEventListener('click', function (ev) {
+    if (!ev.target.closest('[data-act="hess"]')) return;
+    state.quiz.hess = true;
+    renderHess();
+  });
+
+  var viewTick = 0;
+  function updateView(frame, now) {
+    var st = diplo.update(frame, state.cfg);
+    if (now - viewTick < 120) return;
+    viewTick = now;
+    var d = V.describe(frame.sol), msg;
+    if (st === 'mono') {
+      var e = frame.eyes;
+      if (!e.R.seeing && !e.L.seeing) msg = 'Neither eye sees the target';
+      else {
+        var k = e.R.seeing ? 'L' : 'R';
+        msg = (k === 'R' ? 'Right' : 'Left') + ' eye ' + (state.input.cover === k ? 'covered' : 'behind its lid') + ': one image';
+      }
+    } else if (st === 'single') msg = 'Single vision';
+    else if (st === 'suppress') msg = 'Misaligned, but one image is suppressed: no diplopia';
+    else {
+      var bits = [];
+      if (d.hKind) bits.push(d.hKind === 'eso' ? 'uncrossed' : 'crossed');
+      if (d.vKind) bits.push((d.vKind === 'R' ? 'right' : 'left') + ' eye’s image lower');
+      msg = 'Double vision' + (bits.length ? ': ' + bits.join(', ') : '');
+    }
+    $('#dState').textContent = msg;
+    $('#roH').textContent = d.h; $('#roV').textContent = d.v; $('#roT').textContent = d.t;
+  }
+
+  $('#optSee').checked = opts.seeThrough;
+  $('#optLabels').checked = opts.labels;
+  $('#optSee').addEventListener('change', function () { opts.seeThrough = this.checked; store.set('opts', opts); });
+  $('#optLabels').addEventListener('change', function () { opts.labels = this.checked; store.set('opts', opts); });
+
+  /* ---------- diagnose ---------- */
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function pickCase() {
+    var pool = C.list.filter(function (c) { return c.id !== state.lastCase; });
+    var weights = pool.map(function (c) {
+      var p = stats.per[c.id];
+      if (!p || !p.seen) return 3;
+      return 1 + 2.5 * (1 - p.right / p.seen);
+    });
+    var total = weights.reduce(function (a, b) { return a + b; }, 0), r = Math.random() * total;
+    for (var i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
+    return pool[pool.length - 1];
+  }
+  function newCase() {
+    var c = pickCase();
+    state.lastCase = c.id;
+    var others = shuffle(Object.keys(C.sites).filter(function (k) { return k !== c.site; })).slice(0, 3);
+    state.quiz = { n: stats.cases + 1, done: false, step: 0, dx: null, side: null, site: null, hess: false,
+      siteOpts: shuffle(others.concat([c.site])), result: null };
+    startExam('diagnose', c, c.sided ? (Math.random() < 0.5 ? 'R' : 'L') : 'R',
+      CG.looks[Math.floor(Math.random() * CG.looks.length)]);
+  }
+
+  function openSheet() { state.quiz.step = 0; renderSheet(); $('#sheet').hidden = false; }
+  function renderSheet() {
+    var q = state.quiz, h = '';
+    $('#sheetSteps').textContent = (q.step + 1) + ' of 3';
+    if (q.step === 0) {
+      $('#sheetTitle').textContent = 'Your diagnosis';
+      h = conditionGrid('data-dx', false);
+    } else if (q.step === 1) {
+      $('#sheetTitle').textContent = 'Side';
+      h = '<p class="q">Which side is affected?</p>' +
+        '<p class="muted">Give the affected eye. For a brainstem lesion give the side of the lesion; for a skew deviation, the higher eye.</p>' +
+        '<div class="opt-list">' + ['R', 'L', 'B'].map(function (k) {
+          return '<button class="opt" data-qside="' + k + '">' + SIDE_NAME[k] + '</button>';
+        }).join('') + '</div>';
+    } else {
+      $('#sheetTitle').textContent = 'Site';
+      h = '<p class="q">Where is the problem?</p><p class="muted">Pick the structure that explains the findings.</p>' +
+        '<div class="opt-list">' + q.siteOpts.map(function (k) {
+          return '<button class="opt" data-site="' + k + '">' + esc(C.sites[k]) + '</button>';
+        }).join('') + '</div>';
+    }
+    if (q.step > 0) h += '<button class="backlink" data-back="1">Back one step</button>';
+    $('#sheetBody').innerHTML = h;
+    $('#sheetBody').scrollTop = 0;
+    if (q.dx && q.step === 0) { var b = $('[data-dx="' + q.dx + '"]', $('#sheetBody')); if (b) pressed(b, true); }
+  }
+  $('#sheetBody').addEventListener('click', function (ev) {
+    var q = state.quiz, b = ev.target.closest('[data-dx],[data-qside],[data-site],[data-back]');
+    if (!b) return;
+    if (b.dataset.back) q.step--;
+    else if (b.dataset.dx) { q.dx = b.dataset.dx; q.step = 1; }
+    else if (b.dataset.qside) { q.side = b.dataset.qside; q.step = 2; }
+    else if (b.dataset.site) { q.site = b.dataset.site; finishCase(); return; }
+    renderSheet();
+  });
+  $('#sheetClose').addEventListener('click', function () { $('#sheet').hidden = true; });
+
+  function finishCase() {
+    var q = state.quiz, c = state.cond;
+    var sideTruth = c.sided ? state.side : 'B';
+    var r = { dxOk: q.dx === c.id, sideOk: q.side === sideTruth || q.side === c.sideAlso, siteOk: q.site === c.site, sideTruth: sideTruth };
+    r.score = Math.max(0, (r.dxOk ? 3 : 0) + (r.sideOk ? 1 : 0) + (r.siteOk ? 1 : 0) - (q.hess ? 1 : 0));
+    q.result = r; q.done = true;
+    stats.cases++; stats.points += r.score; stats.max += 5;
+    if (r.dxOk) { stats.right++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
+    else stats.streak = 0;
+    var p = stats.per[c.id] || (stats.per[c.id] = { seen: 0, right: 0 });
+    p.seen++; if (r.dxOk) p.right++;
+    store.set('stats', stats);
+    $('#sheet').hidden = true;
+    updateChrome();
+    setTab('info', true);
+  }
+
+  /* ---------- progress ---------- */
+  function renderProgress() {
+    var s = stats, h = '';
+    h += '<div class="tiles">' +
+      '<div class="tile"><b>' + s.cases + '</b><span>cases examined</span></div>' +
+      '<div class="tile"><b>' + (s.cases ? Math.round(100 * s.right / s.cases) + '%' : '–') + '</b><span>diagnoses correct</span></div>' +
+      '<div class="tile"><b>' + s.points + '<small> / ' + s.max + '</small></b><span>points</span></div>' +
+      '<div class="tile"><b>' + s.streak + '</b><span>current streak, best ' + s.best + '</span></div></div>';
+    if (!s.cases) h += '<p class="empty">Nothing yet. Every patient you finish in Diagnose is counted here, and the conditions you miss come up more often.</p>';
+    var rows = C.list.map(function (c) { var p = s.per[c.id] || { seen: 0, right: 0 }; return { c: c, seen: p.seen, right: p.right }; });
+    rows.sort(function (a, b) {
+      if (!a.seen !== !b.seen) return a.seen ? -1 : 1;
+      if (!a.seen) return 0;
+      return a.right / a.seen - b.right / b.seen;
+    });
+    h += '<p class="group-title">By condition, weakest first</p><div class="ptable">';
+    rows.forEach(function (r) {
+      var pct = r.seen ? Math.round(100 * r.right / r.seen) : 0;
+      h += '<div class="prow' + (r.seen ? '' : ' unseen') + '"><span>' + esc(r.c.name) + '</span>' +
+        '<span class="bar-track"><span class="bar-fill" style="display:block;width:' + pct + '%"></span></span>' +
+        '<span class="num">' + (r.seen ? r.right + ' / ' + r.seen : 'not seen') + '</span></div>';
+    });
+    h += '</div>';
+    if (s.cases) h += '<div class="confirm" id="resetBox"><button class="btn ghost small" data-act="reset">Reset progress</button></div>';
+    $('#progressBody').innerHTML = h;
+  }
+  $('#progressBody').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'reset') {
+      $('#resetBox').innerHTML = '<span>Erase all progress on this device?</span>' +
+        '<button class="btn small" data-act="erase">Erase</button><button class="btn ghost small" data-act="keep">Keep</button>';
+    } else if (b.dataset.act === 'erase') {
+      stats = freshStats(); store.set('stats', stats); renderProgress();
+    } else if (b.dataset.act === 'keep') renderProgress();
+  });
+
+  /* ---------- navigation ---------- */
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-go]');
+    if (!b) return;
+    var go = b.dataset.go;
+    if (go === 'textbook') show('picker');
+    else if (go === 'diagnose') newCase();
+    else show(go);
+  });
+
+  /* ---------- frame loop ---------- */
+  var last = performance.now();
+  function tick(now) {
+    requestAnimationFrame(tick);
+    var dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+    last = now;
+    if (document.hidden) return;
+    if (state.screen === 'home') { heroFrame(dt, now); return; }
+    if (state.screen !== 'exam' || !state.sim) return;
+
+    var hs = state.headSel, inp = state.input, p = state.cfg.posture;
+    var base = hs.habitual ? p : ZERO;
+    var bt = { yaw: base.yaw, pitch: base.pitch, roll: hs.tilt ? hs.tilt * 30 : base.roll };
+    var rb = Math.min(1, dt * 7), rd = Math.min(1, dt * 16);
+    state.baseA.yaw += (bt.yaw - state.baseA.yaw) * rb;
+    state.baseA.pitch += (bt.pitch - state.baseA.pitch) * rb;
+    state.baseA.roll += (bt.roll - state.baseA.roll) * rb;
+    state.dollA.yaw += (hs.dollYaw - state.dollA.yaw) * rd;
+    state.dollA.pitch += (hs.dollPitch - state.dollA.pitch) * rd;
+    var head = { yaw: state.baseA.yaw + state.dollA.yaw, pitch: state.baseA.pitch + state.dollA.pitch, roll: state.baseA.roll };
+
+    var frame = state.sim.step(dt, {
+      tx: inp.tx, ty: inp.ty, dist: inp.dist, yaw: head.yaw, pitch: head.pitch, roll: head.roll,
+      vorX: -state.dollA.yaw, vorY: -state.dollA.pitch, cover: inp.cover, lidsLifted: inp.lids
+    });
+    state.frame = frame;
+    ['R', 'L'].forEach(function (k) {
+      var want = inp.cover === k ? 1 : 0;
+      state.coverAnim[k] += clamp(want - state.coverAnim[k], -dt * 6, dt * 6);
+    });
+    face.draw(frame, {
+      bg: stageBg, head: head, light: { x: frame.sol.ox, y: frame.sol.oy },
+      cover: state.coverAnim, seeThrough: opts.seeThrough,
+      target: { show: true, tx: inp.tx, ty: inp.ty, near: clamp(sliderFromDist(inp.dist) / 100, 0, 1) },
+      guide: { show: true, labels: opts.labels }
+    });
+    if (state.tab === 'view' && !$('#paneView').hidden) updateView(frame, now);
+  }
+
+  try {
+    var ro = new ResizeObserver(function () { face.resize(); hero.face.resize(); });
+    ro.observe(stage); ro.observe(hero.face.canvas);
+  } catch (e) {
+    window.addEventListener('resize', function () { face.resize(); hero.face.resize(); });
+  }
+
+  show('home');
+  requestAnimationFrame(tick);
+
+  // test hook
+  CG.app = { state: state, startExam: startExam, newCase: newCase, show: show, setTab: setTab };
+})();
+</script>
+</body>
+</html>

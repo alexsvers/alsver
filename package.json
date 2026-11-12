@@ -1,0 +1,10 @@
+{
+  "name": "cardinal-gaze",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ocular motility trainer: examine a simulated patient and name the lesion.",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/engine.test.mjs"
+  }
+}

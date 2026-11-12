@@ -1,0 +1,193 @@
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7.5 4.5 4 4.5v14c3.5 0 6 .5 8 2 2-1.5 4.500-2 8-2v-14c-3.500 0-6 .5-8 2zM12 6.500v14"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4.500" width="14" height="16.500" rx="2.500"/><path d="M9 4.500V3.500a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9 13.500l2.200 2.200 4-4.400"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V5M17 20v-10"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.300v.200"/></symbol>
+    <symbol id="i-cover" viewBox="0 0 24 24"><ellipse cx="10" cy="9" rx="7" ry="5.800" fill="currentColor"/><path d="M14 13l5.500 8" stroke-width="3"/></symbol>
+    <symbol id="i-head" viewBox="0 0 24 24"><circle cx="12" cy="11" r="5.500"/><path d="M6.500 21c.800-2.800 2.800-4.300 5.500-4.300s4.700 1.500 5.500 4.300M3.500 9.500A9 9 0 0 1 6.500 4M20.500 9.500A9 9 0 0 0 17.500 4"/></symbol>
+    <symbol id="i-near" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.300" fill="currentColor"/><circle cx="12" cy="12" r="6.500"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="i-lid" viewBox="0 0 24 24"><path d="M3 17c3-4.500 6-6.500 9-6.500s6 2 9 6.500"/><circle cx="12" cy="16.500" r="2.300"/><path d="M12 7.500V2.500M9.500 5L12 2.500 14.500 5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12c3-5 6.500-7 10-7s7 2 10 7c-3 5-6.500 7-10 7s-7-2-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="17" height="17" rx="2"/><path d="M9.200 3.500v17M14.800 3.500v17M3.500 9.200h17M3.500 14.800h17"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.500 18.500h5M10.500 21.500h3M12 3a6 6 0 0 0-3.600 10.800c.600.500 1 1.200 1.100 2.200h5c.100-1 .500-1.700 1.100-2.200A6 6 0 0 0 12 3z"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <section class="screen home" id="home">
+    <div class="home-face"><canvas id="heroCanvas" aria-hidden="true"></canvas></div>
+    <div class="home-body wrap">
+      <div class="home-head">
+        <p class="kicker">Ocular motility trainer</p>
+        <h1>Cardinal Gaze</h1>
+        <p class="lede">Examine a simulated patient the way you would in clinic: versions, cover test, head tilt, convergence. Then name the lesion.</p>
+      </div>
+      <nav class="menu" aria-label="Main">
+        <button class="menu-item" data-go="textbook">
+          <svg class="ic"><use href="#i-book"/></svg>
+          <span><b>Textbook</b><small>24 conditions with the findings beside you</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+        <button class="menu-item" data-go="diagnose">
+          <svg class="ic"><use href="#i-clip"/></svg>
+          <span><b>Diagnose</b><small>An unknown patient. Examine, then commit.</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+        <button class="menu-item" data-go="progress">
+          <svg class="ic"><use href="#i-chart"/></svg>
+          <span><b>Progress</b><small id="homeStats">No cases yet</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+        <button class="menu-item" data-go="about">
+          <svg class="ic"><use href="#i-info"/></svg>
+          <span><b>Information</b><small>How to examine, and what the model leaves out</small></span>
+          <svg class="chev"><use href="#i-next"/></svg>
+        </button>
+      </nav>
+    </div>
+  </section>
+
+  <section class="screen page" id="picker" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h2>Choose a condition</h2>
+    </header>
+    <div class="page-body wrap" id="pickerBody"></div>
+  </section>
+
+  <section class="screen exam" id="exam" hidden>
+    <div class="stage-wrap" id="stageWrap">
+      <canvas id="stage" aria-label="Patient's face. Drag to move the fixation light."></canvas>
+      <div class="stage-top">
+        <button class="fab" id="btnClose" aria-label="Close"><svg><use href="#i-close"/></svg></button>
+        <span class="mark mark-r" title="Patient's right eye">R</span>
+        <div class="title-pill"><span id="examTitle"></span></div>
+        <span class="mark mark-l" title="Patient's left eye">L</span>
+        <div class="top-actions">
+          <button class="fab top-tab" data-tab="info" id="topInfo" aria-label="Findings"><svg><use href="#i-bulb"/></svg></button>
+          <button class="fab top-tab" data-tab="view" aria-label="Patient's view"><svg><use href="#i-eye"/></svg></button>
+          <button class="fab top-tab" data-tab="hess" aria-label="Hess chart"><svg><use href="#i-grid"/></svg></button>
+        </div>
+      </div>
+      <div class="stage-bottom">
+        <div class="chips" id="chips" aria-live="polite"></div>
+        <div class="subbar" id="subHead" hidden>
+          <button class="seg" data-head="tiltR">Tilt R</button>
+          <button class="seg" data-head="straight">Straight</button>
+          <button class="seg" data-head="tiltL">Tilt L</button>
+          <button class="seg" data-head="doll">Doll’s head</button>
+          <button class="seg" data-head="habit" id="segHabit">Habitual</button>
+        </div>
+        <div class="subbar" id="subNear" hidden>
+          <button class="seg" data-dist="600">6 m</button>
+          <button class="seg" data-dist="33">33 cm</button>
+          <input type="range" id="distRange" min="0" max="100" value="0" step="1" aria-label="Target distance, far to near">
+          <output id="distOut" for="distRange">6 m</output>
+        </div>
+      </div>
+    </div>
+
+    <div class="dock" id="dock">
+      <div class="dock-l">
+        <button class="tool tool-re" id="btnCoverR" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover R</span></button>
+        <button class="tool" id="btnHead" aria-pressed="false"><span class="ic"><svg><use href="#i-head"/></svg></span><span class="lb">Head</span></button>
+      </div>
+      <div class="dock-r">
+        <button class="tool" id="btnNear" aria-pressed="false"><span class="ic"><svg><use href="#i-near"/></svg></span><span class="lb">Distance</span></button>
+        <button class="tool" id="btnLids" aria-pressed="false"><span class="ic"><svg><use href="#i-lid"/></svg></span><span class="lb">Lift lids</span></button>
+        <button class="tool tool-le" id="btnCoverL" aria-pressed="false"><span class="ic"><svg><use href="#i-cover"/></svg></span><span class="lb">Cover L</span></button>
+      </div>
+    </div>
+
+    <aside class="panel" id="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="info" id="tabInfo" aria-selected="true">Findings</button>
+        <button role="tab" data-tab="view" aria-selected="false">Patient’s view</button>
+        <button role="tab" data-tab="hess" aria-selected="false">Hess chart</button>
+        <button class="iconbtn panel-close" id="panelClose" aria-label="Close panel"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <div class="pane" id="paneInfo"></div>
+      <div class="pane" id="paneView" hidden>
+        <div id="diplo"></div>
+        <p class="d-legend"><span class="key key-re"></span>right eye’s image <span class="key key-le"></span>left eye’s image</p>
+        <p class="d-state" id="dState"></p>
+        <dl class="readout">
+          <div><dt>Horizontal</dt><dd id="roH">None</dd></div>
+          <div><dt>Vertical</dt><dd id="roV">None</dd></div>
+          <div><dt>Torsion</dt><dd id="roT">None</dd></div>
+        </dl>
+        <p class="note">The readout is the angle between the eyes right now, for this target, head position and cover. Cover an eye to measure a latent deviation.</p>
+        <div class="opts">
+          <label><input type="checkbox" id="optSee"> See-through occluder</label>
+          <label><input type="checkbox" id="optLabels"> Show the yoke muscles at each gaze point</label>
+        </div>
+      </div>
+      <div class="pane" id="paneHess" hidden></div>
+    </aside>
+
+    <section class="sheet" id="sheet" hidden>
+      <header class="bar wrap">
+        <button class="iconbtn" id="sheetClose" aria-label="Back to the patient"><svg><use href="#i-close"/></svg></button>
+        <h2 id="sheetTitle">Your diagnosis</h2>
+        <span class="steps" id="sheetSteps"></span>
+      </header>
+      <div class="page-body wrap" id="sheetBody"></div>
+    </section>
+  </section>
+
+  <section class="screen page" id="progress" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h2>Progress</h2>
+    </header>
+    <div class="page-body wrap" id="progressBody"></div>
+  </section>
+
+  <section class="screen page" id="about" hidden>
+    <header class="bar wrap">
+      <button class="iconbtn" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h2>Information</h2>
+    </header>
+    <div class="page-body wrap prose">
+      <h3>Reading the screen</h3>
+      <p>You face the patient, so the patient’s right eye is on your left. Throughout the app <b class="t-re">red is the right eye</b> and <b class="t-le">green is the left eye</b>, as on a Hess screen.</p>
+      <p>The fixation target is a small light. Its corneal reflex is drawn in each eye, so you can read a Hirschberg test in any position: the reflex of a deviated eye sits off the centre of the pupil, about 1 mm for every 12°.</p>
+
+      <h3>Tools</h3>
+      <dl class="tools">
+        <div><dt>Fixation light</dt><dd>Drag anywhere on the face and the patient follows: pursuit. Tap somewhere else and the patient makes a saccade. Release near one of the nine rings and the light snaps to that position of gaze.</dd></div>
+        <div><dt>Cover R, Cover L</dt><dd>Tap to cover an eye, tap again to uncover. Go straight from one eye to the other for an alternate cover test. The occluder is see-through by default so that you can watch the eye behind it; switch that off under Patient’s view.</dd></div>
+        <div><dt>Head</dt><dd>Tilt the head to either shoulder for the Bielschowsky test, and keep it tilted while you cover. Doll’s head lets you drag to turn the head while the patient fixes straight ahead. Habitual returns the patient to the head posture they walked in with.</dd></div>
+        <div><dt>Distance</dt><dd>Move the target from 6 m to 33 cm, then on toward the nose to find the near point of convergence.</dd></div>
+        <div><dt>Lift lids</dt><dd>Holds both upper lids up, as you would with your thumb, when ptosis hides the eye.</dd></div>
+        <div><dt>Patient’s view</dt><dd>Shows the target as the patient sees it, one image per eye, with the angle between the eyes in prism dioptres.</dd></div>
+        <div><dt>Hess chart</dt><dd>Plots each eye’s field while the other eye fixes. The smaller field belongs to the limited eye; the larger shows overaction of its yoke muscle.</dd></div>
+      </dl>
+
+      <h3>A routine that works</h3>
+      <ol>
+        <li>Look before you touch: head posture, lids, pupils, the position of each eye.</li>
+        <li>Corneal reflexes in primary position.</li>
+        <li>Cover–uncover each eye, then alternate cover. Repeat at 33 cm.</li>
+        <li>Versions into the nine positions. Compare the two eyes at each one.</li>
+        <li>Saccades: tap between right and left, then up and down. Watch speed and whether one eye lags.</li>
+        <li>Convergence to the near point.</li>
+        <li>Vertical deviation? Tilt the head to each shoulder and repeat the cover test.</li>
+        <li>Gaze palsy? Use the doll’s head manoeuvre to see whether the reflex overcomes it.</li>
+      </ol>
+
+      <h3>Scoring in Diagnose</h3>
+      <p>Each case is worth 5 points: 3 for the diagnosis, 1 for the side and 1 for the site of the problem. Opening the Hess chart before you answer costs 1 point. The streak counts consecutive correct diagnoses.</p>
+
+      <h3>What the model leaves out</h3>
+      <p>This is a teaching simulation, not a clinical tool. Each eye has six muscles with reciprocal innervation, Hering’s law links the two eyes, and mechanical restrictions are elastic limits. That is enough to reproduce primary and secondary deviation, incomitance, the three-step test and the difference between supranuclear, nuclear and peripheral lesions.</p>
+      <p>It does not model pupillary light reactions, forced duction testing, Bell phenomenon, sensory adaptations other than suppression, or the many atypical and partial presentations you will meet in real patients. Angles are deliberately a little larger than average so that they are visible on a phone.</p>
+    </div>
+  </section>
+
+</div>
