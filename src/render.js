@@ -704,33 +704,96 @@
     });
   };
 
+  // Outline of an occluder paddle in its own frame: a rounded head at the origin, moulded in one
+  // piece with a handle that runs down +y.
+  function paddlePath(ctx, s) {
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 24 * s, 21 * s, 0, 62 * DEG, 118 * DEG, true);
+    ctx.quadraticCurveTo(-6.4 * s, 22.4 * s, -5.3 * s, 30 * s);
+    ctx.bezierCurveTo(-4.6 * s, 44 * s, -4.2 * s, 62 * s, -5.2 * s, 88 * s);
+    ctx.quadraticCurveTo(-5.4 * s, 95.5 * s, 0, 95.5 * s);
+    ctx.quadraticCurveTo(5.4 * s, 95.5 * s, 5.2 * s, 88 * s);
+    ctx.bezierCurveTo(4.2 * s, 62 * s, 4.6 * s, 44 * s, 5.3 * s, 30 * s);
+    ctx.quadraticCurveTo(6.4 * s, 22.4 * s, 11.27 * s, 18.54 * s);
+    ctx.closePath();
+  }
+
+  // The occluder: matte black plastic, or smoked acrylic when it is see-through. It is held a little
+  // in front of the face, so it throws a soft shadow, and is lit from the upper left like the face.
   Face.prototype.drawOccluder = function (ctx, view) {
-    var self = this;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    var self = this, dpr = this.dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ['R', 'L'].forEach(function (key) {
       var a = view.cover ? view.cover[key] : 0;
       if (a <= 0.01) return;
       var c = self.eyeScreen[key], s = self.drawScale || self.scale, out = key === 'R' ? -1 : 1;
-      var ease = 1 - Math.pow(1 - a, 3);
-      var x = c.x + out * (1 - ease) * 60 * s, y = c.y + 1 * s;
+      var ease = 1 - Math.pow(1 - a, 3), clear = !!view.seeThrough, g, i;
       ctx.save();
-      ctx.translate(x, y);
-      ctx.globalAlpha = ease;
-      ctx.fillStyle = view.seeThrough ? 'rgba(18,24,28,0.66)' : 'rgba(18,22,26,0.98)';
-      ctx.beginPath();
-      ctx.moveTo(out * 12 * s, 14 * s);
-      ctx.lineTo(out * 30 * s, 62 * s);
-      ctx.lineTo(out * 39 * s, 58 * s);
-      ctx.lineTo(out * 20 * s, 10 * s);
-      ctx.closePath(); ctx.fill();
-      var g = ctx.createRadialGradient(-out * 6 * s, -6 * s, 2 * s, 0, 0, 25 * s);
-      if (view.seeThrough) { g.addColorStop(0, 'rgba(40,52,60,0.4)'); g.addColorStop(1, 'rgba(14,20,24,0.58)'); }
-      else { g.addColorStop(0, 'rgba(52,60,66,0.98)'); g.addColorStop(1, 'rgba(14,18,22,0.99)'); }
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.ellipse(0, 0, 24 * s, 19 * s, 0, 0, TAU); ctx.fill();
-      ctx.strokeStyle = view.seeThrough ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 24 * s - 1, 19 * s - 1, 0, 0, TAU); ctx.stroke();
+      // swings in from the side, handle pointing down and out
+      ctx.translate(c.x + out * (1 - ease) * 58 * s, c.y + (0.5 + (1 - ease) * 9) * s);
+      ctx.rotate(-out * (21 + (1 - ease) * 16) * DEG);
+      ctx.globalAlpha = Math.min(1, ease * 1.5);
+      ctx.lineCap = 'round';
+
+      // body and the shadow it throws
+      g = ctx.createLinearGradient(-20 * s, -20 * s, 16 * s, 44 * s);
+      if (clear) {
+        g.addColorStop(0, 'rgba(64,76,84,0.44)'); g.addColorStop(0.5, 'rgba(28,35,40,0.55)'); g.addColorStop(1, 'rgba(10,14,17,0.66)');
+      } else {
+        g.addColorStop(0, '#3E454B'); g.addColorStop(0.45, '#1E2226'); g.addColorStop(1, '#0B0D0F');
+      }
+      ctx.save();
+      ctx.shadowColor = clear ? 'rgba(34,16,8,0.24)' : 'rgba(34,16,8,0.45)';
+      ctx.shadowBlur = 5 * s * dpr;
+      ctx.shadowOffsetX = 0.8 * s * dpr; ctx.shadowOffsetY = 2.6 * s * dpr;
+      paddlePath(ctx, s);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      paddlePath(ctx, s);
+      ctx.clip();
+      // the bevelled rim of the head: one stroke that runs from lit to shaded around the ellipse
+      g = ctx.createLinearGradient(-17 * s, -15 * s, 17 * s, 15 * s);
+      g.addColorStop(0, 'rgba(255,255,255,' + (clear ? 0.46 : 0.24) + ')');
+      g.addColorStop(0.42, 'rgba(255,255,255,0)');
+      g.addColorStop(0.58, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,' + (clear ? 0.34 : 0.6) + ')');
+      ctx.strokeStyle = g; ctx.lineWidth = 1.2 * s;
+      ctx.beginPath(); ctx.ellipse(0, 0, 22.5 * s, 19.5 * s, 0, 0, TAU); ctx.stroke();
+      // a soft sheen on the face of the paddle
+      ctx.save();
+      ctx.translate(-7 * s, -8 * s); ctx.rotate(-0.55); ctx.scale(2.4, 1);
+      g = ctx.createRadialGradient(0, 0, 0, 0, 0, 6.5 * s);
+      g.addColorStop(0, 'rgba(255,255,255,' + (clear ? 0.3 : 0.15) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 6.5 * s, 0, TAU); ctx.fill();
+      ctx.restore();
+      if (clear) {                                 // a band of reflected light, as on a sheet of acrylic
+        ctx.fillStyle = 'rgba(255,255,255,0.075)';
+        ctx.beginPath();
+        ctx.moveTo(-30 * s, 4 * s); ctx.lineTo(30 * s, -15 * s); ctx.lineTo(30 * s, -8 * s); ctx.lineTo(-30 * s, 11 * s);
+        ctx.closePath(); ctx.fill();
+      }
+      // handle: rounded, lit down one side, with grip ridges
+      g = ctx.createLinearGradient(-5.2 * s, 0, 5.2 * s, 0);
+      g.addColorStop(0, 'rgba(255,255,255,' + (clear ? 0.24 : 0.14) + ')'); g.addColorStop(0.4, 'rgba(255,255,255,0)');
+      g.addColorStop(1, 'rgba(0,0,0,' + (clear ? 0.26 : 0.42) + ')');
+      ctx.fillStyle = g; ctx.fillRect(-7 * s, 25 * s, 14 * s, 74 * s);
+      ctx.lineWidth = 0.55 * s;
+      for (i = 0; i < 4; i++) {
+        var gy = (58 + i * 4.6) * s;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.moveTo(-3.3 * s, gy); ctx.lineTo(3.3 * s, gy); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,' + (clear ? 0.22 : 0.12) + ')';
+        ctx.beginPath(); ctx.moveTo(-3.3 * s, gy + 0.8 * s); ctx.lineTo(3.3 * s, gy + 0.8 * s); ctx.stroke();
+      }
+      ctx.restore();
+
+      // crisp outer edge
+      paddlePath(ctx, s);
+      ctx.strokeStyle = clear ? 'rgba(8,12,15,0.62)' : 'rgba(0,0,0,0.75)';
+      ctx.lineWidth = Math.max(1, 0.45 * s);
+      ctx.stroke();
       ctx.restore();
     });
   };

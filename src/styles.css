@@ -187,6 +187,7 @@ p { margin: 0; }
 .cover { flex-direction: column; gap: 8px; }
 .cover .ic svg { width: 30px; height: 30px; }
 .tool-re .ic { color: var(--re); }
+.tool-re .ic svg { transform: scaleX(-1); }      /* the right eye's paddle is held from the other side */
 .tool-le .ic { color: var(--le); }
 .tool-re[aria-pressed="true"] { background: var(--re); border-color: var(--re); color: #fff; }
 .tool-le[aria-pressed="true"] { background: var(--le); border-color: var(--le); color: #fff; }
